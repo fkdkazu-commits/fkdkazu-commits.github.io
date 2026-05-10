@@ -28,3 +28,7 @@ temp/
 
 # GSCトークンキャッシュ
 data/gsc-token.json
+
+# Claude.ai セッションCookie（絶対コミット禁止）
+claude-cookies.json
+prompts/

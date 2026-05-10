@@ -11,7 +11,8 @@
     "link": "tsx scripts/internal-linking.ts",
     "analyze": "tsx scripts/analyze-gsc.ts",
     "rewrite": "tsx scripts/rewrite-article.ts",
-    "playwright:install": "playwright install chromium"
+    "playwright:install": "playwright install chromium",
+    "cookies:export": "tsx scripts/export-cookies.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.54.0",
