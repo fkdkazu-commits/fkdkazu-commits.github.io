@@ -1,5 +1,5 @@
 ---
-import DocsLayout from '../../layouts/DocsLayout.astro';
+const base = import.meta.env.BASE_URL;
 ---
 
 <!doctype html>
@@ -24,7 +24,7 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
 
       <!-- Document Cards -->
       <div class="grid md:grid-cols-2 gap-6 mb-12">
-        <a href="/docs/requirements/" class="group bg-white rounded-2xl border border-gray-200 p-8 hover:border-blue-300 hover:shadow-lg transition-all">
+        <a href={`${base}docs/requirements/`} class="group bg-white rounded-2xl border border-gray-200 p-8 hover:border-blue-300 hover:shadow-lg transition-all">
           <div class="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center mb-5 group-hover:bg-blue-100 transition-colors">
             <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -36,12 +36,12 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
             システムの目的・背景・機能要件・非機能要件・コスト・開発フェーズを定義します。
           </p>
           <div class="mt-6 flex items-center gap-3 text-xs text-gray-400">
-            <span class="bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">ドラフト v1.0</span>
+            <span class="bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">ドラフト v1.1</span>
             <span>2026年5月</span>
           </div>
         </a>
 
-        <a href="/docs/design/" class="group bg-white rounded-2xl border border-gray-200 p-8 hover:border-blue-300 hover:shadow-lg transition-all">
+        <a href={`${base}docs/design/`} class="group bg-white rounded-2xl border border-gray-200 p-8 hover:border-blue-300 hover:shadow-lg transition-all">
           <div class="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center mb-5 group-hover:bg-purple-100 transition-colors">
             <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
@@ -53,7 +53,7 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
             システム全体構成・技術スタック・データフロー・自動化設計・SEO設計の詳細を記述します。
           </p>
           <div class="mt-6 flex items-center gap-3 text-xs text-gray-400">
-            <span class="bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">ドラフト v1.0</span>
+            <span class="bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">ドラフト v1.1</span>
             <span>2026年5月</span>
           </div>
         </a>
@@ -67,11 +67,11 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
             ['プロジェクト名', 'AI SEO自動運用ブログシステム'],
             ['フロントエンド', 'Astro + MDX + Tailwind CSS'],
             ['ホスティング', 'GitHub Pages'],
-            ['AI エンジン', 'Claude API (Anthropic)'],
+            ['AI エンジン', 'Playwright + Claude.ai Web（APIキー不要）'],
             ['SEO分析', 'Google Search Console API'],
             ['自動化基盤', 'GitHub Actions'],
-            ['想定月額コスト', '¥3,000〜¥20,000（API使用量依存）'],
-            ['初期費用', '¥0〜¥5,000（ドメイン取得費のみ）'],
+            ['想定月額コスト', '約¥3,000（Claude Proサブスクリプション固定）'],
+            ['初期費用', '¥0〜¥2,000（ドメイン取得費のみ）'],
           ].map(([label, value]) => (
             <div class="flex gap-3">
               <dt class="text-gray-500 shrink-0 w-36">{label}</dt>

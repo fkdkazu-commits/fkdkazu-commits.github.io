@@ -22,7 +22,7 @@ const posts = (await getCollection('blog', ({ data }) => !data.draft))
       最新ツールの使い方から戦略まで、すぐに役立つ記事をお届けします。
     </p>
     <a
-      href="/blog/"
+      href={`${import.meta.env.BASE_URL}blog/`}
       class="inline-block bg-blue-600 text-white font-semibold px-8 py-3 rounded-lg hover:bg-blue-700 transition-colors"
     >
       記事を読む
@@ -52,12 +52,12 @@ const posts = (await getCollection('blog', ({ data }) => !data.draft))
     <section class="mb-16">
       <div class="flex items-center justify-between mb-8">
         <h2 class="text-2xl font-bold">最新記事</h2>
-        <a href="/blog/" class="text-blue-600 hover:underline text-sm">すべて見る →</a>
+        <a href={`${import.meta.env.BASE_URL}blog/`} class="text-blue-600 hover:underline text-sm">すべて見る →</a>
       </div>
       <ul class="space-y-6">
         {posts.map((post) => (
           <li class="border-b border-gray-100 pb-6">
-            <a href={`/blog/${post.slug}/`} class="group flex gap-4">
+            <a href={`${import.meta.env.BASE_URL}blog/${post.slug}/`} class="group flex gap-4">
               <div class="flex-1 min-w-0">
                 <div class="flex gap-2 flex-wrap mb-2">
                   {post.data.tags.slice(0, 2).map((tag) => (

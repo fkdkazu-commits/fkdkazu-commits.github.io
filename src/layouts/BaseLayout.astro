@@ -37,11 +37,11 @@ const og = ogImage || `${siteUrl}/og-default.png`;
   <body class="bg-white text-gray-900 font-sans">
     <header class="border-b border-gray-200 py-4 px-6 sticky top-0 bg-white/95 backdrop-blur z-10">
       <div class="max-w-3xl mx-auto flex items-center justify-between">
-        <a href="/" class="text-xl font-bold hover:text-blue-600 transition-colors">
+        <a href={import.meta.env.BASE_URL} class="text-xl font-bold hover:text-blue-600 transition-colors">
           AIメディア
         </a>
         <nav class="flex gap-6 text-sm text-gray-600">
-          <a href="/blog/" class="hover:text-blue-600 transition-colors">記事一覧</a>
+          <a href={`${import.meta.env.BASE_URL}blog/`} class="hover:text-blue-600 transition-colors">記事一覧</a>
         </nav>
       </div>
     </header>
@@ -53,7 +53,7 @@ const og = ogImage || `${siteUrl}/og-default.png`;
     <footer class="border-t border-gray-200 py-8 mt-16">
       <div class="max-w-3xl mx-auto px-6 text-center text-sm text-gray-500">
         <p class="mb-2">
-          <a href="/" class="hover:text-blue-600 font-semibold">AIメディア</a>
+          <a href={import.meta.env.BASE_URL} class="hover:text-blue-600 font-semibold">AIメディア</a>
           &nbsp;—&nbsp;AI・SEO・業務効率化の実践情報
         </p>
         <p>&copy; {new Date().getFullYear()} All rights reserved.</p>
