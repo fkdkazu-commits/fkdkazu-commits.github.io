@@ -1,6 +1,7 @@
 /**
  * OG画像自動生成スクリプト
- * sharpを使って記事タイトルからOG画像を生成する
+ * Unsplash APIでキーワードに合った写真を取得し、タイトルオーバーレイを重ねる
+ * UNSPLASH_ACCESS_KEY が未設定の場合は SVG フォールバック
  */
 import sharp from 'sharp';
 import fs from 'fs/promises';
@@ -14,8 +15,7 @@ const OG_DIR = path.join(ROOT, 'public', 'og');
 
 const OG_WIDTH = 1200;
 const OG_HEIGHT = 630;
-const BG_COLOR = { r: 15, g: 23, b: 42 };   // slate-900
-const ACCENT_COLOR = '#3b82f6';               // blue-500
+const ACCENT_COLOR = '#3b82f6';
 
 function extractFrontmatter(content: string): Record<string, string> {
   const match = content.match(/^---\n([\s\S]*?)\n---/);
@@ -28,37 +28,87 @@ function extractFrontmatter(content: string): Record<string, string> {
   return result;
 }
 
-function wrapText(title: string, maxLen = 24): string[] {
+function wrapText(title: string, maxLen = 22): string[] {
   const lines: string[] = [];
   let current = '';
   for (const char of title) {
     current += char;
-    if (current.length >= maxLen) {
-      lines.push(current);
-      current = '';
-    }
+    if (current.length >= maxLen) { lines.push(current); current = ''; }
   }
   if (current) lines.push(current);
   return lines.slice(0, 3);
 }
 
-function buildSvg(title: string, keyword: string): string {
+// Unsplash写真の上に重ねるグラデーション + タイトルテキスト SVG
+function buildOverlaySvg(title: string): string {
   const lines = wrapText(title);
-  const lineHeight = 80;
-  const startY = 240 - ((lines.length - 1) * lineHeight) / 2;
+  const lineHeight = 72;
+  const totalTextH = lines.length * lineHeight;
+  const textStartY = OG_HEIGHT - 120 - totalTextH + lineHeight;
 
   const textElements = lines
-    .map((line, i) => `<text x="600" y="${startY + i * lineHeight}" font-family="sans-serif" font-size="52" font-weight="bold" fill="white" text-anchor="middle">${line}</text>`)
+    .map((line, i) => `<text x="80" y="${textStartY + i * lineHeight}" font-family="sans-serif" font-size="54" font-weight="bold" fill="white">${line}</text>`)
     .join('\n');
 
   return `<svg width="${OG_WIDTH}" height="${OG_HEIGHT}" xmlns="http://www.w3.org/2000/svg">
-  <rect width="${OG_WIDTH}" height="${OG_HEIGHT}" fill="rgb(${BG_COLOR.r},${BG_COLOR.g},${BG_COLOR.b})"/>
+  <defs>
+    <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="black" stop-opacity="0"/>
+      <stop offset="50%" stop-color="black" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="black" stop-opacity="0.85"/>
+    </linearGradient>
+  </defs>
+  <rect width="${OG_WIDTH}" height="${OG_HEIGHT}" fill="url(#grad)"/>
+  <rect x="60" y="${OG_HEIGHT - 110}" width="8" height="44" fill="${ACCENT_COLOR}" rx="4"/>
+  <text x="82" y="${OG_HEIGHT - 74}" font-family="sans-serif" font-size="22" fill="${ACCENT_COLOR}">AI メディア</text>
+  ${textElements}
+  <text x="${OG_WIDTH - 20}" y="${OG_HEIGHT - 20}" font-family="sans-serif" font-size="18" fill="#94a3b8" text-anchor="end">Photo: Unsplash</text>
+</svg>`;
+}
+
+// Unsplash APIで写真を取得してバッファで返す
+async function fetchUnsplashPhoto(keyword: string): Promise<Buffer | null> {
+  const accessKey = process.env.UNSPLASH_ACCESS_KEY;
+  if (!accessKey) return null;
+
+  try {
+    const searchRes = await fetch(
+      `https://api.unsplash.com/photos/random?query=${encodeURIComponent(keyword)}&orientation=landscape&count=1`,
+      { headers: { Authorization: `Client-ID ${accessKey}` } },
+    );
+    if (!searchRes.ok) {
+      console.warn(`Unsplash API エラー: ${searchRes.status}`);
+      return null;
+    }
+    const [photo] = await searchRes.json() as { urls: { regular: string }; links: { download_location: string } }[];
+    if (!photo) return null;
+
+    // Unsplash利用規約に基づきダウンロードを記録
+    fetch(photo.links.download_location, { headers: { Authorization: `Client-ID ${accessKey}` } }).catch(() => {});
+
+    const imgRes = await fetch(`${photo.urls.regular}&w=${OG_WIDTH}&h=${OG_HEIGHT}&fit=crop`);
+    if (!imgRes.ok) return null;
+    return Buffer.from(await imgRes.arrayBuffer());
+  } catch (e) {
+    console.warn('Unsplash取得失敗:', e);
+    return null;
+  }
+}
+
+// フォールバック: SVGのみのOG画像
+function buildFallbackSvg(title: string, keyword: string): string {
+  const lines = wrapText(title);
+  const lineHeight = 80;
+  const startY = 240 - ((lines.length - 1) * lineHeight) / 2;
+  const textElements = lines
+    .map((line, i) => `<text x="600" y="${startY + i * lineHeight}" font-family="sans-serif" font-size="52" font-weight="bold" fill="white" text-anchor="middle">${line}</text>`)
+    .join('\n');
+  return `<svg width="${OG_WIDTH}" height="${OG_HEIGHT}" xmlns="http://www.w3.org/2000/svg">
+  <rect width="${OG_WIDTH}" height="${OG_HEIGHT}" fill="rgb(15,23,42)"/>
   <rect x="60" y="40" width="8" height="40" fill="${ACCENT_COLOR}" rx="4"/>
-  <text x="82" y="72" font-family="sans-serif" font-size="24" fill="${ACCENT_COLOR}">ブログ</text>
+  <text x="82" y="72" font-family="sans-serif" font-size="24" fill="${ACCENT_COLOR}">AI メディア</text>
   ${textElements}
   <text x="600" y="${startY + lines.length * lineHeight + 40}" font-family="sans-serif" font-size="28" fill="#94a3b8" text-anchor="middle">${keyword}</text>
-  <rect x="60" y="${OG_HEIGHT - 80}" width="${OG_WIDTH - 120}" height="2" fill="#334155"/>
-  <text x="600" y="${OG_HEIGHT - 44}" font-family="sans-serif" font-size="22" fill="#64748b" text-anchor="middle">blog.example.com</text>
 </svg>`;
 }
 
@@ -66,11 +116,24 @@ async function generateOgImage(slug: string, title: string, keyword: string): Pr
   await fs.mkdir(OG_DIR, { recursive: true });
   const outPath = path.join(OG_DIR, `${slug}.png`);
 
+  // 既存ファイルがあればスキップ（再生成したい場合は削除する）
   if (await fs.access(outPath).then(() => true).catch(() => false)) return;
 
-  const svg = buildSvg(title, keyword);
-  await sharp(Buffer.from(svg)).png().toFile(outPath);
-  console.log(`OG画像生成: ${outPath}`);
+  const photoBuffer = await fetchUnsplashPhoto(keyword);
+
+  if (photoBuffer) {
+    const overlay = buildOverlaySvg(title);
+    await sharp(photoBuffer)
+      .resize(OG_WIDTH, OG_HEIGHT, { fit: 'cover', position: 'center' })
+      .composite([{ input: Buffer.from(overlay), top: 0, left: 0 }])
+      .png()
+      .toFile(outPath);
+    console.log(`OG画像生成 (Unsplash): ${slug}.png`);
+  } else {
+    const svg = buildFallbackSvg(title, keyword);
+    await sharp(Buffer.from(svg)).png().toFile(outPath);
+    console.log(`OG画像生成 (SVG fallback): ${slug}.png`);
+  }
 }
 
 async function main() {

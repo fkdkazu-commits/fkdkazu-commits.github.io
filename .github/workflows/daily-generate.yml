@@ -33,6 +33,8 @@ jobs:
         run: npm run generate
 
       - name: Generate OG image
+        env:
+          UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
         run: npm run og
 
       - name: Add internal links
