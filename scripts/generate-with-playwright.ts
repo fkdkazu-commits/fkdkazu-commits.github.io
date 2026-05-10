@@ -64,6 +64,13 @@ async function buildContext(browser: Browser): Promise<BrowserContext> {
     locale: 'ja-JP',
   });
 
+  // Bot検知回避
+  await context.addInitScript(() => {
+    Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+    Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3] });
+    Object.defineProperty(navigator, 'languages', { get: () => ['ja-JP', 'ja', 'en'] });
+  });
+
   // GitHub Secrets から Cookie を注入
   const cookiesJson = process.env.CLAUDE_COOKIES;
   if (!cookiesJson) {
@@ -84,6 +91,13 @@ async function waitForInputBox(page: Page, timeoutMs = 30_000): Promise<void> {
       continue;
     }
   }
+  // デバッグ: 現在のページ状態をログ出力
+  const url = page.url();
+  const title = await page.title().catch(() => '取得失敗');
+  const bodySnippet = await page.innerText('body').catch(() => '').then(t => t.slice(0, 300));
+  console.error(`現在のURL: ${url}`);
+  console.error(`ページタイトル: ${title}`);
+  console.error(`ページ内容（先頭300字）: ${bodySnippet}`);
   throw new Error('Claude.ai の入力ボックスが見つかりません。Cookieの有効期限が切れている可能性があります。');
 }
 

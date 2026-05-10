@@ -32,10 +32,24 @@ async function main() {
 
   const browser = await chromium.launch({
     headless: false,
-    args: ['--start-maximized'],
+    args: [
+      '--start-maximized',
+      '--disable-blink-features=AutomationControlled',
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+    ],
   });
 
-  const context = await browser.newContext({ viewport: null });
+  const context = await browser.newContext({
+    viewport: null,
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  });
+
+  // Bot検知回避: webdriverフラグを隠す
+  await context.addInitScript(() => {
+    Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+  });
+
   const page = await context.newPage();
 
   await page.goto('https://claude.ai', { waitUntil: 'domcontentloaded' });
