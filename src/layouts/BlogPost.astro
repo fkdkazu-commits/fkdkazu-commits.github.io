@@ -9,6 +9,9 @@ interface Props {
 const { post } = Astro.props;
 const { title, description, pubDate, updatedDate, tags, ogImage, canonicalUrl } = post.data;
 
+// OG画像: frontmatterに指定があればそれを、なければスラッグから自動生成
+const heroImage = ogImage ?? `${import.meta.env.BASE_URL}og/${post.slug}.png`;
+
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'BlogPosting',
@@ -20,7 +23,7 @@ const jsonLd = {
 };
 ---
 
-<BaseLayout title={title} description={description} ogImage={ogImage} canonicalUrl={canonicalUrl}>
+<BaseLayout title={title} description={description} ogImage={heroImage} canonicalUrl={canonicalUrl}>
   <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
 
   <!-- Breadcrumb -->
@@ -34,6 +37,18 @@ const jsonLd = {
 
   <article class="prose prose-gray max-w-none">
     <header class="not-prose mb-8">
+      <!-- ヒーロー画像 -->
+      <div class="mb-6 rounded-xl overflow-hidden">
+        <img
+          src={heroImage}
+          alt={title}
+          width="1200"
+          height="630"
+          class="w-full object-cover"
+          loading="eager"
+        />
+      </div>
+
       <div class="flex gap-2 flex-wrap mb-3">
         {tags.map((tag) => (
           <span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">{tag}</span>

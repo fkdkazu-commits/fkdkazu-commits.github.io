@@ -278,7 +278,7 @@ function parseArticleOutput(raw: string): { title: string; body: string; descrip
   return { title, body, description };
 }
 
-function buildMdx(kw: Keyword, title: string, body: string, description: string): string {
+function buildMdx(kw: Keyword, slug: string, title: string, body: string, description: string): string {
   const today = new Date().toISOString().split('T')[0];
   return `---
 title: "${title.replace(/"/g, '\\"')}"
@@ -286,6 +286,7 @@ description: "${description.replace(/"/g, '\\"')}"
 pubDate: ${today}
 keyword: "${kw.keyword}"
 tags: ${JSON.stringify(kw.tags)}
+ogImage: /ai-seo-blog/og/${slug}.png
 draft: false
 ---
 
@@ -362,7 +363,7 @@ async function main() {
     const today = new Date().toISOString().split('T')[0];
     const slug = baseSlug.length >= 3 ? baseSlug : `post-${today}`;
     const mdxPath = path.join(BLOG_DIR, `${slug}.mdx`);
-    await fs.writeFile(mdxPath, buildMdx(target, title, body, description), 'utf-8');
+    await fs.writeFile(mdxPath, buildMdx(target, slug, title, body, description), 'utf-8');
     console.log(`✓ MDX保存: src/content/blog/${slug}.mdx`);
 
     // generated フラグ更新
