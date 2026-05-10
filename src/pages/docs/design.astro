@@ -168,8 +168,8 @@ fkdkazu-commits.github.io/
     <!-- 3. 記事生成フロー -->
     <section id="section-3">
       <h2 class="text-2xl font-bold text-gray-900 border-l-4 border-blue-500 pl-4 mb-6">3. 記事生成フロー</h2>
-      <div class="bg-white rounded-xl border border-gray-200 p-6 mb-4">
-        <div class="flex flex-col md:flex-row gap-2 items-start md:items-center flex-wrap">
+      <div class="bg-white rounded-xl border border-gray-200 p-6 mb-4 overflow-x-auto">
+        <div class="flex items-start min-w-max">
           {[
             'keywords.json から\n未生成キーワードを1件取得',
             'Playwright が\nChromium を起動',
@@ -181,14 +181,14 @@ fkdkazu-commits.github.io/
             'GitHub へ\ncommit・push',
             'deploy.yml が\n自動起動 → 公開',
           ].map((step, i) => (
-            <div class="flex items-center gap-2">
-              <div class="text-center">
-                <div class="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold mb-1 mx-auto">
+            <div class="flex items-start">
+              <div class="flex flex-col items-center w-24">
+                <div class="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold mb-2 shrink-0">
                   {i + 1}
                 </div>
-                <p class="text-xs text-gray-600 text-center whitespace-pre-line max-w-[90px]">{step}</p>
+                <p class="text-xs text-gray-600 text-center whitespace-pre-line leading-relaxed">{step}</p>
               </div>
-              {i < 8 && <span class="text-blue-300 text-lg hidden md:block">→</span>}
+              {i < 8 && <span class="text-blue-300 text-lg mt-1 px-1">→</span>}
             </div>
           ))}
         </div>
