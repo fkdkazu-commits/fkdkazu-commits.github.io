@@ -181,7 +181,7 @@ async function main() {
 
   console.log(`内部リンク解析: ${target.title}`);
 
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({ headless: false });
   try {
     const context = await buildContext(browser);
     const page = await context.newPage();

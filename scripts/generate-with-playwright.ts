@@ -297,7 +297,7 @@ async function main() {
 
   let browser: Browser | null = null;
   try {
-    browser = await chromium.launch({ headless: true });
+    browser = await chromium.launch({ headless: false });
     const context = await buildContext(browser);
     const page = await context.newPage();
 

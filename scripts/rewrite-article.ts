@@ -190,7 +190,7 @@ async function main() {
     return;
   }
 
-  const browser: Browser = await chromium.launch({ headless: true });
+  const browser: Browser = await chromium.launch({ headless: false });
   try {
     const context = await buildContext(browser);
     const page = await context.newPage();
