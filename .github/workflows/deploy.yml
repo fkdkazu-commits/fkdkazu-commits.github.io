@@ -32,7 +32,8 @@ jobs:
 
       - name: Build
         env:
-          SITE_URL: https://fkdkazu-commits.github.io
+          SITE_URL: https://fkdkazu-commits.github.io/ai-seo-blog
+          GOOGLE_SITE_VERIFICATION: ${{ secrets.GOOGLE_SITE_VERIFICATION }}
         run: npm run build
 
       - name: Upload artifact

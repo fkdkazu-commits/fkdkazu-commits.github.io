@@ -29,7 +29,7 @@ jobs:
           GSC_CLIENT_ID: ${{ secrets.GSC_CLIENT_ID }}
           GSC_CLIENT_SECRET: ${{ secrets.GSC_CLIENT_SECRET }}
           GSC_REFRESH_TOKEN: ${{ secrets.GSC_REFRESH_TOKEN }}
-          SITE_URL: https://fkdkazu-commits.github.io
+          SITE_URL: https://fkdkazu-commits.github.io/ai-seo-blog
         run: npm run analyze
 
       - name: Commit analysis results

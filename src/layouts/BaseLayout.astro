@@ -10,6 +10,7 @@ const { title, description, ogImage, canonicalUrl } = Astro.props;
 const siteUrl = 'https://fkdkazu-commits.github.io';
 const canonical = canonicalUrl || new URL(Astro.url.pathname, siteUrl).toString();
 const og = ogImage || `${siteUrl}/og-default.png`;
+const gscVerification = import.meta.env.GOOGLE_SITE_VERIFICATION;
 ---
 
 <!doctype html>
@@ -32,7 +33,7 @@ const og = ogImage || `${siteUrl}/og-default.png`;
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={og} />
 
-    <link rel="sitemap" href="/sitemap-index.xml" />
+    {gscVerification && <meta name="google-site-verification" content={gscVerification} />}
   </head>
   <body class="bg-white text-gray-900 font-sans">
     <header class="border-b border-gray-200 py-4 px-6 sticky top-0 bg-white/95 backdrop-blur z-10">

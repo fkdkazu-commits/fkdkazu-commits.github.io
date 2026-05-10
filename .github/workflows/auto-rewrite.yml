@@ -20,14 +20,16 @@ jobs:
         with:
           node-version: '20'
 
-
       - name: Install dependencies
         run: npm install
 
-      - name: Run AI rewrite
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: Run AI rewrite via Claude.ai (Playwright)
         env:
-          CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
-          SITE_URL: https://fkdkazu-commits.github.io
+          CLAUDE_COOKIES: ${{ secrets.CLAUDE_COOKIES }}
+          SITE_URL: https://fkdkazu-commits.github.io/ai-seo-blog
         run: npm run rewrite
 
       - name: Commit rewritten article
