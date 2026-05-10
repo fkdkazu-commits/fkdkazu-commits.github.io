@@ -309,6 +309,10 @@ async function main() {
     await waitForInputBox(page, 30_000);
     console.log('✓ Claude.ai ログイン確認済み');
 
+    // ページが完全に安定するまで待機（ナビゲーション完了を待つ）
+    await page.waitForLoadState('networkidle').catch(() => {});
+    await page.waitForTimeout(2000);
+
     // プロンプト送信
     const prompt = buildArticlePrompt(target);
     await submitPrompt(page, prompt);
