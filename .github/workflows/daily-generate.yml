@@ -1,4 +1,4 @@
-name: Daily Article Generation
+name: Daily Article Generation (Playwright)
 
 on:
   schedule:
@@ -20,14 +20,16 @@ jobs:
         with:
           node-version: '20'
 
-
       - name: Install dependencies
         run: npm install
 
-      - name: Generate article
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: Generate article via Claude.ai (Playwright)
         env:
-          CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
-          SITE_URL: https://fkdkazu-commits.github.io
+          # GitHub Secrets に保存したClaude.aiのセッションCookie (JSON配列)
+          CLAUDE_COOKIES: ${{ secrets.CLAUDE_COOKIES }}
         run: npm run generate
 
       - name: Generate OG image
@@ -35,8 +37,7 @@ jobs:
 
       - name: Add internal links
         env:
-          CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
-          SITE_URL: https://fkdkazu-commits.github.io
+          CLAUDE_COOKIES: ${{ secrets.CLAUDE_COOKIES }}
         run: npm run link
 
       - name: Commit and push
@@ -46,4 +47,4 @@ jobs:
           git add -A
           git diff --staged --quiet || git commit -m "feat: 記事自動生成 $(date '+%Y-%m-%d')"
           git push
-      # mainへのpushでdeploy.ymlが自動起動し、GitHub Pagesへデプロイされる
+      # mainへのpushでdeploy.ymlが自動起動しGitHub Pagesへデプロイされる

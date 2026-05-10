@@ -1,5 +1,61 @@
 # セットアップガイド
 
+## 0. Claude.ai セッションCookieの取得（記事自動生成の事前準備）
+
+記事生成はPlaywrightがClaude.aiのWebページを自動操作します。
+APIキーは不要ですが、**Claude.aiにログインした状態のCookieをGitHub Secretsに登録**する必要があります。
+
+### 手順
+
+**1. Chrome でClaude.aiにログイン**
+
+https://claude.ai にClaude Proアカウントでログインします。
+
+**2. DevToolsでCookieをエクスポート**
+
+ブラウザで `F12` → **Application** タブ → **Cookies** → `https://claude.ai`
+
+対象Cookie（すべてコピーする）:
+- `__Secure-next-auth.session-token` または `sessionKey`
+- `__cf_bm`
+- `cf_clearance`
+- その他 claude.ai ドメインのCookie
+
+**3. JSON形式に変換**
+
+以下の形式で全Cookieをまとめます：
+
+```json
+[
+  {
+    "name": "sessionKey",
+    "value": "sk-ant-sid01-xxxx",
+    "domain": ".claude.ai",
+    "path": "/",
+    "secure": true,
+    "httpOnly": true,
+    "sameSite": "Lax"
+  },
+  ...
+]
+```
+
+> **Chrome拡張を使う場合**：「Cookie Editor」などの拡張でExport（JSON形式）を選ぶと簡単です。
+
+**4. GitHub Secrets に登録**
+
+https://github.com/fkdkazu-commits/fkdkazu-commits.github.io/settings/secrets/actions
+
+- Secret名: `CLAUDE_COOKIES`
+- 値: 上記のJSON文字列（配列全体）
+
+**5. Cookieの有効期限について**
+
+Claude.aiのセッションは通常数週間〜数ヶ月有効ですが、期限切れの場合はワークフローが失敗します。
+その場合は再度Cookieをエクスポートして更新してください。
+
+---
+
 ## 1. ローカル開発環境
 
 ```bash
