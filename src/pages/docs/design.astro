@@ -6,7 +6,7 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
   title="設計書"
   description="AI SEO自動運用ブログシステムのシステム構成・技術スタック・データフロー・自動化設計・SEO設計の詳細を記述します。"
   docType="設計書"
-  version="1.0"
+  version="1.1"
   date="2026年5月10日"
 >
 
@@ -20,7 +20,7 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
         ['3', '記事生成フロー'],
         ['4', 'SEO改善ループ'],
         ['5', 'GitHub Actions設計'],
-        ['6', 'Claude API利用設計'],
+        ['6', 'Playwright利用設計'],
         ['7', 'Google Search Console設計'],
         ['8', 'SEO実装設計'],
         ['9', '環境変数・シークレット管理'],
@@ -40,7 +40,6 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
     <section id="section-1">
       <h2 class="text-2xl font-bold text-gray-900 border-l-4 border-blue-500 pl-4 mb-6">1. システム全体構成</h2>
 
-      <!-- アーキテクチャ図（テキストベース） -->
       <div class="bg-gray-900 rounded-xl p-6 mb-6 overflow-x-auto">
         <pre class="text-green-400 text-sm font-mono leading-relaxed whitespace-pre">{`
   ┌─────────────────────────────────────────────────────────┐
@@ -64,16 +63,19 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
   └──────────┬────────────────────────────┬────────────────┘
              │                            │
              ▼                            ▼
-  ┌──────────────────┐       ┌────────────────────────────┐
-  │   Claude API     │       │   GitHub Pages             │
-  │                  │       │                            │
-  │  ・記事生成      │       │  https://fkdkazu-commits   │
-  │  ・リライト      │       │       .github.io/          │
-  │  ・タイトル改善  │       │                            │
-  │  ・FAQ生成       │       │  ・LP（トップページ）      │
-  │  ・内部リンク分析│       │  ・ブログ記事一覧          │
-  └──────────────────┘       │  ・個別記事ページ          │
-                             └────────────────────────────┘
+  ┌──────────────────────┐   ┌────────────────────────────┐
+  │  Claude.ai Web       │   │   GitHub Pages             │
+  │  （Playwright操作）  │   │                            │
+  │                      │   │  https://fkdkazu-commits   │
+  │  ・記事生成          │   │       .github.io/          │
+  │  ・リライト          │   │                            │
+  │  ・タイトル改善      │   │  ・LP（トップページ）      │
+  │  ・内部リンク分析    │   │  ・ブログ記事一覧          │
+  │  ・FAQ生成           │   │  ・個別記事ページ          │
+  │                      │   └────────────────────────────┘
+  │  認証: CLAUDE_COOKIES│
+  │  （GitHub Secrets）  │
+  └──────────────────────┘
              ▲
              │
   ┌──────────────────┐
@@ -138,11 +140,12 @@ fkdkazu-commits.github.io/
 │           └─ ...
 │
 ├─ scripts/                         ← Node.js自動化スクリプト（tsx実行）
-│   ├─ generate-article.ts          ← 記事生成
-│   ├─ rewrite-article.ts           ← AIリライト
+│   ├─ generate-with-playwright.ts  ← 記事生成（Playwright）
+│   ├─ rewrite-article.ts           ← AIリライト（Playwright）
 │   ├─ analyze-gsc.ts               ← GSC分析
 │   ├─ generate-og-image.ts         ← OG画像生成
-│   └─ internal-linking.ts          ← 内部リンク追加
+│   ├─ internal-linking.ts          ← 内部リンク追加（Playwright）
+│   └─ export-cookies.ts            ← Cookie取得ツール（初回セットアップ用）
 │
 ├─ .github/workflows/
 │   ├─ deploy.yml                   ← mainへのpushで自動デプロイ
@@ -169,14 +172,14 @@ fkdkazu-commits.github.io/
         <div class="flex flex-col md:flex-row gap-2 items-start md:items-center flex-wrap">
           {[
             'keywords.json から\n未生成キーワードを1件取得',
-            'Claude APIへ\n送信',
-            'タイトル・見出し・\n本文・FAQ を生成',
-            'meta description\n生成（120字以内）',
+            'Playwright が\nChromium を起動',
+            'CLAUDE_COOKIES で\nClaude.ai に自動ログイン',
+            'プロンプト送信・\n出力を安定検知',
+            'タイトル・本文・FAQ・\nmeta description を抽出',
             'OG画像生成\n（sharp）',
             'MDXファイルとして\n保存',
             'GitHub へ\ncommit・push',
-            'deploy.yml が\n自動起動',
-            'Astroビルド →\nGitHub Pages 公開',
+            'deploy.yml が\n自動起動 → 公開',
           ].map((step, i) => (
             <div class="flex items-center gap-2">
               <div class="text-center">
@@ -191,7 +194,7 @@ fkdkazu-commits.github.io/
         </div>
       </div>
       <div class="bg-blue-50 rounded-xl p-4 text-sm text-blue-800">
-        <strong>ポイント：</strong> GitHub Actions の daily-generate.yml が AM 5:00 に自動起動し、記事生成 → OG画像 → 内部リンク → commit → push の全工程を無人で実行します。pushを検知した deploy.yml が即座にビルド・デプロイを行い、約2分で記事が公開されます。
+        <strong>ポイント：</strong> GitHub Actions の daily-generate.yml が AM 5:00 に自動起動し、Playwright が Claude.ai Web を操作して記事を生成します。APIキー不要・Claude Proサブスクリプションのみで動作し、OG画像 → 内部リンク → commit → push の全工程を無人で実行します。pushを検知した deploy.yml が即座にビルド・デプロイを行い、約2分で記事が公開されます。
       </div>
     </section>
 
@@ -229,7 +232,7 @@ fkdkazu-commits.github.io/
   ──────────────────────────────
   candidates.json から1件取得
          ↓
-  Claude API でリライト実行
+  Playwright が Claude.ai Web を操作
   ・タイトル改善 or 本文リライト
          ↓
   MDXファイル更新 + push
@@ -242,7 +245,7 @@ fkdkazu-commits.github.io/
             <h3 class="font-bold text-red-700 mb-3 text-sm">リライト条件 1：低CTR改善</h3>
             <div class="text-xs space-y-1 text-gray-700">
               <p><span class="font-mono bg-gray-100 px-1 rounded">impressions ≥ 100</span> かつ <span class="font-mono bg-gray-100 px-1 rounded">ctr &lt; 1.5%</span></p>
-              <p class="text-gray-500 mt-2">→ タイトル・descriptionをClaudeが改善</p>
+              <p class="text-gray-500 mt-2">→ タイトル・descriptionをPlaywright経由でClaudeが改善</p>
               <p class="text-gray-500">→ CTR 3%以上を目標に最適化</p>
             </div>
           </div>
@@ -281,9 +284,9 @@ fkdkazu-commits.github.io/
           <tbody class="divide-y divide-gray-100">
             {[
               ['deploy.yml', 'mainへのpush・手動', 'npm install → Astroビルド → GitHub Pagesへデプロイ', '約2〜3分'],
-              ['daily-generate.yml', '毎日 AM 5:00 JST', '記事生成 → OG画像 → 内部リンク → commit → push', '約3〜5分'],
+              ['daily-generate.yml', '毎日 AM 5:00 JST', 'Playwright起動 → 記事生成 → OG画像 → 内部リンク → commit → push', '約5〜8分'],
               ['seo-analysis.yml', '毎日 AM 6:00 JST', 'GSCデータ取得 → 分析 → candidates.json 更新', '約1〜2分'],
-              ['auto-rewrite.yml', '毎日 AM 7:00 JST', 'リライト候補取得 → Claude実行 → MDX更新 → push', '約3〜5分'],
+              ['auto-rewrite.yml', '毎日 AM 7:00 JST', 'リライト候補取得 → Playwright起動 → Claude.ai操作 → MDX更新 → push', '約5〜8分'],
             ].map(([name, trigger, desc, time]) => (
               <tr>
                 <td class="px-6 py-4 font-mono text-xs text-blue-700">{name}</td>
@@ -298,62 +301,78 @@ fkdkazu-commits.github.io/
       <p class="text-xs text-gray-500 mt-3">※ 各ワークフローは GitHub 管理画面から手動実行（workflow_dispatch）も可能です。</p>
     </section>
 
-    <!-- 6. Claude API利用設計 -->
+    <!-- 6. Playwright利用設計 -->
     <section id="section-6">
-      <h2 class="text-2xl font-bold text-gray-900 border-l-4 border-blue-500 pl-4 mb-6">6. Claude API 利用設計</h2>
+      <h2 class="text-2xl font-bold text-gray-900 border-l-4 border-blue-500 pl-4 mb-6">6. Playwright 利用設計</h2>
+
+      <!-- 認証フロー -->
+      <div class="bg-white rounded-xl border border-gray-200 p-6 mb-4">
+        <h3 class="font-bold text-gray-900 mb-4 text-sm">認証フロー（Cookie注入）</h3>
+        <div class="bg-gray-900 rounded-lg p-4 overflow-x-auto">
+          <pre class="text-green-400 text-xs font-mono leading-relaxed whitespace-pre">{`
+  GitHub Secrets
+  CLAUDE_COOKIES（JSON配列）
+          ↓
+  context.addCookies(JSON.parse(cookiesJson))
+          ↓
+  page.goto('https://claude.ai/new')
+          ↓
+  ログイン済み状態でチャット画面が開く
+  （ブラウザプロファイル不要・APIキー不要）
+`}</pre>
+        </div>
+        <p class="text-xs text-gray-500 mt-3">※ セッションCookieは数週間〜数ヶ月で期限切れとなります。期限切れ時は <span class="font-mono bg-gray-100 px-1 rounded">npm run cookies:export</span> で再取得してください。</p>
+      </div>
+
+      <!-- 処理別設計 -->
       <div class="space-y-4">
         {[
           {
             use: '記事生成',
-            model: 'claude-sonnet-4-6',
-            maxTokens: '4,096',
-            input: 'キーワード・検索意図・ターゲット読者',
-            output: 'タイトル・本文（Markdown）・FAQ・meta description（JSON形式）',
-            script: 'generate-article.ts',
+            script: 'generate-with-playwright.ts',
+            output: 'タイトル・本文（Markdown）・FAQ・meta description',
+            extract: '[ARTICLE_DRAFT]...[/ARTICLE_DRAFT] タグで囲まれた範囲を抽出',
+            stability: '2回連続で同一テキストを検出したら出力完了と判定',
           },
           {
-            use: 'タイトル/description改善',
-            model: 'claude-sonnet-4-6',
-            maxTokens: '1,024',
-            input: '現タイトル・description・CTR・表示回数・現掲載順位',
-            output: '改善後タイトル・description（JSON形式）',
+            use: 'タイトル / description 改善',
             script: 'rewrite-article.ts',
+            output: '改善後タイトル・description（JSON形式）',
+            extract: 'JSON配列をregexで抽出',
+            stability: '同上',
           },
           {
             use: '本文リライト',
-            model: 'claude-sonnet-4-6',
-            maxTokens: '8,192',
-            input: '現行記事本文・GSCデータ（順位・CTR）',
-            output: 'E-E-A T強化済みの改善版本文（Markdown形式）',
             script: 'rewrite-article.ts',
+            output: 'E-E-A-T強化済みの改善版本文（Markdown形式）',
+            extract: '[ARTICLE_DRAFT]...[/ARTICLE_DRAFT] タグで囲まれた範囲を抽出',
+            stability: '同上',
           },
           {
             use: '内部リンク分析',
-            model: 'claude-sonnet-4-6',
-            maxTokens: '1,024',
-            input: '対象記事情報・全記事の一覧（タイトル・キーワード）',
-            output: 'リンク推奨記事のslugリスト（JSON配列）',
             script: 'internal-linking.ts',
+            output: 'リンク推奨記事のslugリスト（JSON配列）',
+            extract: 'JSON配列をregexで抽出',
+            stability: '同上',
           },
-        ].map(({ use, model, maxTokens, input, output, script }) => (
+        ].map(({ use, script, output, extract, stability }) => (
           <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
             <div class="flex items-center gap-4 px-6 py-3 bg-gray-50 border-b border-gray-200">
               <h3 class="font-bold text-gray-900 text-sm">{use}</h3>
-              <span class="text-xs font-mono text-purple-600 bg-purple-50 px-2 py-0.5 rounded">{model}</span>
-              <span class="text-xs text-gray-500 ml-auto">max_tokens: {maxTokens}</span>
+              <span class="text-xs font-mono text-purple-600 bg-purple-50 px-2 py-0.5 rounded ml-auto">{script}</span>
             </div>
             <div class="grid md:grid-cols-3 gap-4 px-6 py-4 text-xs">
               <div>
-                <p class="font-semibold text-gray-500 mb-1">入力</p>
-                <p class="text-gray-700">{input}</p>
-              </div>
-              <div>
-                <p class="font-semibold text-gray-500 mb-1">出力</p>
+                <p class="font-semibold text-gray-500 mb-1">出力内容</p>
                 <p class="text-gray-700">{output}</p>
               </div>
               <div>
-                <p class="font-semibold text-gray-500 mb-1">スクリプト</p>
-                <p class="font-mono text-blue-700">{script}</p>
+                <p class="font-semibold text-gray-500 mb-1">抽出方法</p>
+                <p class="text-gray-700">{extract}</p>
+              </div>
+              <div>
+                <p class="font-semibold text-gray-500 mb-1">完了検知</p>
+                <p class="text-gray-700">{stability}</p>
               </div>
             </div>
           </div>
@@ -420,7 +439,7 @@ fkdkazu-commits.github.io/
           {
             category: 'コンテンツSEO',
             items: [
-              ['meta description', 'Claude APIで120字以内に自動生成'],
+              ['meta description', 'Playwright + Claude.ai Webで120字以内に自動生成'],
               ['OGP', 'og:title/description/imageを全ページ設定'],
               ['Twitter Card', 'summary_large_imageを設定'],
               ['FAQ schema', 'FAQ記事にJSON-LDを自動埋め込み'],
@@ -438,7 +457,7 @@ fkdkazu-commits.github.io/
           {
             category: '内部リンク設計',
             items: [
-              ['自動リンク', 'Claude APIで関連記事を分析・挿入'],
+              ['自動リンク', 'Playwright + Claude.ai Webで関連記事を分析・挿入'],
               ['リンク位置', 'FAQ直前または記事末尾'],
               ['最大件数', '1記事あたり最大3件の関連リンク'],
             ],
@@ -478,7 +497,7 @@ fkdkazu-commits.github.io/
           </thead>
           <tbody class="divide-y divide-gray-100">
             {[
-              ['CLAUDE_API_KEY', 'Claude API認証', 'GitHub Secrets', 'console.anthropic.com で発行'],
+              ['CLAUDE_COOKIES', 'Claude.ai セッション認証', 'GitHub Secrets', 'npm run cookies:export で取得・GitHub Secretsに登録'],
               ['GSC_CLIENT_ID', 'Google OAuth クライアントID', 'GitHub Secrets', 'Google Cloud Console で発行'],
               ['GSC_CLIENT_SECRET', 'Google OAuth シークレット', 'GitHub Secrets', 'Google Cloud Console で発行'],
               ['GSC_REFRESH_TOKEN', 'Google OAuth トークン', 'GitHub Secrets', 'OAuth認証フローで取得'],
@@ -496,8 +515,9 @@ fkdkazu-commits.github.io/
         </table>
       </div>
       <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
-        <strong>セキュリティ方針：</strong> APIキー・シークレットはすべて <strong>GitHub Secrets</strong> で管理します。
-        ソースコード・設定ファイル・環境変数ファイル（.env）へのAPIキー記載は禁止し、コードレビュー時に必ず確認します。
+        <strong>セキュリティ方針：</strong> セッションCookie・シークレットはすべて <strong>GitHub Secrets</strong> で管理します。
+        ソースコード・設定ファイル・環境変数ファイル（.env）への認証情報の記載は禁止し、コードレビュー時に必ず確認します。
+        CLAUDE_COOKIESは期限切れの際、<span class="font-mono">npm run cookies:export</span> で再取得してGitHub Secretsを更新してください。
       </div>
     </section>
 
