@@ -1,0 +1,59 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import type { CollectionEntry } from 'astro:content';
+
+interface Props {
+  post: CollectionEntry<'blog'>;
+}
+
+const { post } = Astro.props;
+const { title, description, pubDate, updatedDate, tags, ogImage, canonicalUrl } = post.data;
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'BlogPosting',
+  headline: title,
+  description,
+  datePublished: pubDate.toISOString(),
+  ...(updatedDate && { dateModified: updatedDate.toISOString() }),
+  author: { '@type': 'Organization', name: 'ブログ' },
+};
+---
+
+<BaseLayout title={title} description={description} ogImage={ogImage} canonicalUrl={canonicalUrl}>
+  <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+
+  <!-- Breadcrumb -->
+  <nav class="text-sm text-gray-500 mb-6" aria-label="breadcrumb">
+    <ol class="flex gap-2">
+      <li><a href="/" class="hover:text-blue-600">ホーム</a></li>
+      <li>/</li>
+      <li class="text-gray-900">{title}</li>
+    </ol>
+  </nav>
+
+  <article class="prose prose-gray max-w-none">
+    <header class="not-prose mb-8">
+      <div class="flex gap-2 flex-wrap mb-3">
+        {tags.map((tag) => (
+          <span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">{tag}</span>
+        ))}
+      </div>
+      <h1 class="text-3xl font-bold leading-tight mb-4">{title}</h1>
+      <div class="text-sm text-gray-500">
+        <time datetime={pubDate.toISOString()}>
+          {pubDate.toLocaleDateString('ja-JP')} 公開
+        </time>
+        {updatedDate && (
+          <span class="ml-4">
+            <time datetime={updatedDate.toISOString()}>
+              {updatedDate.toLocaleDateString('ja-JP')} 更新
+            </time>
+          </span>
+        )}
+      </div>
+    </header>
+
+    <slot />
+  </article>
+</BaseLayout>

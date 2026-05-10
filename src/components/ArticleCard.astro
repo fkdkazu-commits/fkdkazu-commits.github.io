@@ -1,0 +1,28 @@
+---
+interface Props {
+  title: string;
+  description: string;
+  slug: string;
+  pubDate: Date;
+  tags: string[];
+}
+
+const { title, description, slug, pubDate, tags } = Astro.props;
+---
+
+<article class="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+  <a href={`/blog/${slug}/`} class="group block">
+    <div class="flex gap-2 flex-wrap mb-3">
+      {tags.map((tag) => (
+        <span class="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full">{tag}</span>
+      ))}
+    </div>
+    <h2 class="text-lg font-semibold group-hover:text-blue-600 transition-colors mb-2 line-clamp-2">
+      {title}
+    </h2>
+    <p class="text-sm text-gray-600 line-clamp-2 mb-3">{description}</p>
+    <time class="text-xs text-gray-400" datetime={pubDate.toISOString()}>
+      {pubDate.toLocaleDateString('ja-JP')}
+    </time>
+  </a>
+</article>

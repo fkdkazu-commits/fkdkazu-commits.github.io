@@ -1,0 +1,63 @@
+---
+interface Props {
+  title: string;
+  description: string;
+  ogImage?: string;
+  canonicalUrl?: string;
+}
+
+const { title, description, ogImage, canonicalUrl } = Astro.props;
+const siteUrl = 'https://fkdkazu-commits.github.io';
+const canonical = canonicalUrl || new URL(Astro.url.pathname, siteUrl).toString();
+const og = ogImage || `${siteUrl}/og-default.png`;
+---
+
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+
+    <!-- OGP -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={og} />
+    <meta property="og:url" content={canonical} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={og} />
+
+    <link rel="sitemap" href="/sitemap-index.xml" />
+  </head>
+  <body class="bg-white text-gray-900 font-sans">
+    <header class="border-b border-gray-200 py-4 px-6 sticky top-0 bg-white/95 backdrop-blur z-10">
+      <div class="max-w-3xl mx-auto flex items-center justify-between">
+        <a href="/" class="text-xl font-bold hover:text-blue-600 transition-colors">
+          AIメディア
+        </a>
+        <nav class="flex gap-6 text-sm text-gray-600">
+          <a href="/blog/" class="hover:text-blue-600 transition-colors">記事一覧</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="max-w-3xl mx-auto px-6 py-10">
+      <slot />
+    </main>
+
+    <footer class="border-t border-gray-200 py-8 mt-16">
+      <div class="max-w-3xl mx-auto px-6 text-center text-sm text-gray-500">
+        <p class="mb-2">
+          <a href="/" class="hover:text-blue-600 font-semibold">AIメディア</a>
+          &nbsp;—&nbsp;AI・SEO・業務効率化の実践情報
+        </p>
+        <p>&copy; {new Date().getFullYear()} All rights reserved.</p>
+      </div>
+    </footer>
+  </body>
+</html>

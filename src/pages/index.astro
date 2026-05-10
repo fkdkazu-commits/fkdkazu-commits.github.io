@@ -1,0 +1,81 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { getCollection } from 'astro:content';
+
+const posts = (await getCollection('blog', ({ data }) => !data.draft))
+  .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf())
+  .slice(0, 6);
+---
+
+<BaseLayout
+  title="AIで学ぶ、仕事が変わる | AI活用メディア"
+  description="AI・ChatGPT・業務効率化に関する実践的な情報を発信するメディアです。最新のAIツール活用法からSEO戦略まで幅広くカバーします。"
+>
+  <!-- Hero -->
+  <section class="text-center py-16 -mx-6 px-6 bg-gradient-to-b from-blue-50 to-white mb-16">
+    <p class="text-blue-600 font-semibold text-sm tracking-widest uppercase mb-4">AI × Business Media</p>
+    <h1 class="text-4xl md:text-5xl font-bold text-gray-900 mb-6 leading-tight">
+      AIで学ぶ、<br class="md:hidden">仕事が変わる
+    </h1>
+    <p class="text-gray-600 text-lg max-w-xl mx-auto mb-8">
+      AI・ChatGPT・業務効率化の実践情報を発信。<br>
+      最新ツールの使い方から戦略まで、すぐに役立つ記事をお届けします。
+    </p>
+    <a
+      href="/blog/"
+      class="inline-block bg-blue-600 text-white font-semibold px-8 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+    >
+      記事を読む
+    </a>
+  </section>
+
+  <!-- Features -->
+  <section class="mb-16">
+    <h2 class="text-2xl font-bold text-center mb-8">このメディアについて</h2>
+    <div class="grid md:grid-cols-3 gap-6">
+      {[
+        { icon: '🤖', title: 'AI活用術', desc: 'ChatGPT・Claude・生成AIの実践的な活用法を解説します。' },
+        { icon: '📈', title: 'SEO戦略', desc: '検索上位を狙うコンテンツ設計とSEO施策を紹介します。' },
+        { icon: '⚡', title: '業務効率化', desc: 'AIツールを使った業務自動化・時短テクニックを紹介します。' },
+      ].map(({ icon, title, desc }) => (
+        <div class="text-center p-6 rounded-xl border border-gray-100 hover:border-blue-200 transition-colors">
+          <div class="text-4xl mb-3">{icon}</div>
+          <h3 class="font-bold text-lg mb-2">{title}</h3>
+          <p class="text-gray-600 text-sm">{desc}</p>
+        </div>
+      ))}
+    </div>
+  </section>
+
+  <!-- Latest Articles -->
+  {posts.length > 0 && (
+    <section class="mb-16">
+      <div class="flex items-center justify-between mb-8">
+        <h2 class="text-2xl font-bold">最新記事</h2>
+        <a href="/blog/" class="text-blue-600 hover:underline text-sm">すべて見る →</a>
+      </div>
+      <ul class="space-y-6">
+        {posts.map((post) => (
+          <li class="border-b border-gray-100 pb-6">
+            <a href={`/blog/${post.slug}/`} class="group flex gap-4">
+              <div class="flex-1 min-w-0">
+                <div class="flex gap-2 flex-wrap mb-2">
+                  {post.data.tags.slice(0, 2).map((tag) => (
+                    <span class="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">{tag}</span>
+                  ))}
+                </div>
+                <h3 class="font-semibold text-lg group-hover:text-blue-600 transition-colors mb-1 line-clamp-2">
+                  {post.data.title}
+                </h3>
+                <p class="text-gray-500 text-sm line-clamp-1">{post.data.description}</p>
+              </div>
+              <time class="text-xs text-gray-400 whitespace-nowrap mt-1" datetime={post.data.pubDate.toISOString()}>
+                {post.data.pubDate.toLocaleDateString('ja-JP')}
+              </time>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )}
+</BaseLayout>

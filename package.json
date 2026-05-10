@@ -1,0 +1,31 @@
+{
+  "name": "ai-seo-blog",
+  "type": "module",
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "generate": "tsx scripts/generate-article.ts",
+    "rewrite": "tsx scripts/rewrite-article.ts",
+    "analyze": "tsx scripts/analyze-gsc.ts",
+    "og": "tsx scripts/generate-og-image.ts",
+    "link": "tsx scripts/internal-linking.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.54.0",
+    "@astrojs/mdx": "^3.0.0",
+    "@astrojs/sitemap": "^3.0.0",
+    "@astrojs/tailwind": "^5.0.0",
+    "astro": "^4.0.0",
+    "googleapis": "^144.0.0",
+    "sharp": "^0.33.0",
+    "tailwindcss": "^3.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "dotenv": "^16.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  }
+}

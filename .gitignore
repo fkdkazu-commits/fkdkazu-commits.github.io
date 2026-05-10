@@ -1,0 +1,30 @@
+# 環境変数
+.env
+.env.local
+
+# 依存関係
+node_modules/
+.pnpm-store/
+
+# ビルド成果物
+dist/
+.astro/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# エディタ
+.vscode/settings.json
+.idea/
+
+# ログ
+*.log
+logs/
+
+# 一時ファイル
+tmp/
+temp/
+
+# GSCトークンキャッシュ
+data/gsc-token.json
