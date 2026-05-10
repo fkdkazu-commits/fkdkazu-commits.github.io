@@ -59,15 +59,6 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
         </table>
       </div>
 
-      <!-- v1.1 更新サマリー -->
-      <div class="mt-4 bg-blue-50 border border-blue-200 rounded-xl p-5 text-sm">
-        <p class="font-bold text-blue-800 mb-2">v1.1 変更点</p>
-        <ul class="space-y-1 text-blue-700">
-          <li class="flex gap-2"><span class="shrink-0">•</span>AI記事生成の方式を <strong>Claude API（従量課金）→ Playwright + Claude Pro（月額固定）</strong> に変更</li>
-          <li class="flex gap-2"><span class="shrink-0">•</span>月額運用コストを <strong>最大¥20,000 → 約¥3,000</strong> に削減</li>
-          <li class="flex gap-2"><span class="shrink-0">•</span>APIキーの管理・従量課金リスクを完全に排除</li>
-        </ul>
-      </div>
     </section>
 
     <!-- 2. 目的・背景 -->
@@ -314,18 +305,11 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
     <section id="section-7">
       <h2 class="text-2xl font-bold text-gray-900 border-l-4 border-blue-500 pl-4 mb-6">7. コスト想定</h2>
 
-      <!-- 比較バナー -->
-      <div class="grid md:grid-cols-2 gap-4 mb-6">
-        <div class="bg-red-50 border border-red-200 rounded-xl p-5">
-          <p class="text-xs font-bold text-red-500 uppercase tracking-wider mb-2">旧構成（Claude API）</p>
-          <p class="text-3xl font-bold text-red-600 mb-1">¥3,000〜¥20,000<span class="text-base font-normal text-red-400">/月</span></p>
-          <p class="text-xs text-red-500">従量課金・記事数に比例してコスト増加</p>
-        </div>
-        <div class="bg-green-50 border border-green-200 rounded-xl p-5">
-          <p class="text-xs font-bold text-green-600 uppercase tracking-wider mb-2">新構成（Playwright + Claude Pro）</p>
-          <p class="text-3xl font-bold text-green-600 mb-1">約¥3,000<span class="text-base font-normal text-green-400">/月</span></p>
-          <p class="text-xs text-green-600">月額固定・記事数が増えてもコスト変動なし</p>
-        </div>
+      <!-- コストサマリー -->
+      <div class="bg-green-50 border border-green-200 rounded-xl p-5 mb-6">
+        <p class="text-xs font-bold text-green-600 uppercase tracking-wider mb-1">月額運用コスト（目安）</p>
+        <p class="text-3xl font-bold text-green-600 mb-1">約¥3,000<span class="text-base font-normal text-green-400">/月</span></p>
+        <p class="text-xs text-green-600">月額固定（Playwright + Claude Pro）・記事数が増えてもコスト変動なし</p>
       </div>
 
       <div class="grid md:grid-cols-2 gap-6">
@@ -355,7 +339,7 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
         </div>
         <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div class="px-6 py-4 bg-gray-50 border-b border-gray-200">
-            <h3 class="font-bold text-gray-900">月額運用費（新構成）</h3>
+            <h3 class="font-bold text-gray-900">月額運用費</h3>
           </div>
           <table class="w-full text-sm">
             <tbody class="divide-y divide-gray-100">
