@@ -6,7 +6,7 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
   title="設計書"
   description="AI SEO自動運用ブログシステムのシステム構成・技術スタック・データフロー・自動化設計・SEO設計の詳細を記述します。"
   docType="設計書"
-  version="1.1"
+  version="1.2"
   date="2026年5月10日"
 >
 
@@ -44,7 +44,7 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
         <pre class="text-green-400 text-sm font-mono leading-relaxed whitespace-pre">{`
   ┌─────────────────────────────────────────────────────────┐
   │                  GitHub Repository                       │
-  │  fkdkazu-commits/fkdkazu-commits.github.io              │
+  │  fkdkazu-commits/ai-seo-blog                            │
   │                                                         │
   │  ├─ src/           ← Astroソースコード                  │
   │  ├─ scripts/       ← 自動化TypeScriptスクリプト         │
@@ -67,7 +67,7 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
   │  Claude.ai Web       │   │   GitHub Pages             │
   │  （Playwright操作）  │   │                            │
   │                      │   │  https://fkdkazu-commits   │
-  │  ・記事生成          │   │       .github.io/          │
+  │  ・記事生成          │   │  .github.io/ai-seo-blog/   │
   │  ・リライト          │   │                            │
   │  ・タイトル改善      │   │  ・LP（トップページ）      │
   │  ・内部リンク分析    │   │  ・ブログ記事一覧          │
@@ -110,7 +110,7 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
       <h2 class="text-2xl font-bold text-gray-900 border-l-4 border-blue-500 pl-4 mb-6">2. ディレクトリ構成</h2>
       <div class="bg-gray-900 rounded-xl p-6 overflow-x-auto">
         <pre class="text-green-400 text-sm font-mono leading-relaxed whitespace-pre">{`
-fkdkazu-commits.github.io/
+ai-seo-blog/
 │
 ├─ src/
 │   ├─ pages/
@@ -121,7 +121,8 @@ fkdkazu-commits.github.io/
 │   │   ├─ docs/                    ← クライアント向け資料
 │   │   │   ├─ index.astro          ← 資料一覧
 │   │   │   ├─ requirements.astro   ← 要件定義書
-│   │   │   └─ design.astro         ← 設計書（本ページ）
+│   │   │   ├─ design.astro         ← 設計書（本ページ）
+│   │   │   └─ settings.astro       ← GitHub設定画面（ブラウザ経由）
 │   │   └─ robots.txt.ts
 │   │
 │   ├─ layouts/
@@ -140,12 +141,15 @@ fkdkazu-commits.github.io/
 │           └─ ...
 │
 ├─ scripts/                         ← Node.js自動化スクリプト（tsx実行）
-│   ├─ generate-with-playwright.ts  ← 記事生成（Playwright）
+│   ├─ generate-with-playwright.ts  ← 記事生成メイン（Playwright + Claude.ai）
 │   ├─ rewrite-article.ts           ← AIリライト（Playwright）
-│   ├─ analyze-gsc.ts               ← GSC分析
-│   ├─ generate-og-image.ts         ← OG画像生成
+│   ├─ analyze-gsc.ts               ← GSC分析・リライト候補抽出
+│   ├─ generate-og-image.ts         ← OG画像生成（sharp）
 │   ├─ internal-linking.ts          ← 内部リンク追加（Playwright）
-│   └─ export-cookies.ts            ← Cookie取得ツール（初回セットアップ用）
+│   ├─ export-cookies.ts            ← Cookie取得ツール（初回セットアップ用）
+│   ├─ generate-article.ts          ← 記事生成（旧版・参照用）
+│   ├─ new-article.ts               ← 記事ひな形作成ユーティリティ
+│   └─ publish.ts                   ← 記事公開処理スクリプト
 │
 ├─ .github/workflows/
 │   ├─ deploy.yml                   ← mainへのpushで自動デプロイ
@@ -156,6 +160,8 @@ fkdkazu-commits.github.io/
 ├─ data/
 │   ├─ keywords/
 │   │   └─ keywords.json            ← キーワードリスト（手動管理）
+│   ├─ prompts/
+│   │   └─ article-prompt.txt       ← 記事生成プロンプト（編集可能部分）
 │   ├─ gsc-metrics.json             ← GSC取得データ（自動更新）
 │   └─ rewrite-candidates.json      ← リライト候補（自動更新）
 │

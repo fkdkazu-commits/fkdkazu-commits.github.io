@@ -219,20 +219,10 @@ function looksLikeUserPrompt(candidate: string, prompt: string): boolean {
 
 // ─── 記事生成ロジック ─────────────────────────────────────────────────────────
 
-function buildArticlePrompt(kw: Keyword): string {
-  return `以下の条件でSEO記事を書いてください。
+const PROMPT_FILE = path.join(ROOT, 'data', 'prompts', 'article-prompt.txt');
 
-【キーワード】${kw.keyword}
-【検索意図】${kw.intent}
-【ターゲット読者】${kw.target}
-
-【要件】
-- 文字数: 2,000〜3,000字
-- H2見出しを3〜5個、必要に応じてH3を追加
-- E-E-A-T（経験・専門性・権威性・信頼性）を意識した具体的な内容
-- 末尾にFAQセクション（Q&A形式）を3問追加
-- meta descriptionを末尾に1行追加（120字以内、「meta_description:」で始める）
-
+// 出力形式は固定（parseArticleOutput がこの形式に依存するため変更不可）
+const FIXED_OUTPUT_FORMAT = `
 【出力形式】
 記事全体を必ず以下のMarkdownコードブロックの中に記述してください（# ## ### などの記号をそのまま含めること）：
 
@@ -251,6 +241,34 @@ function buildArticlePrompt(kw: Keyword): string {
 \`\`\`
 
 meta_description: （ここにmeta descriptionを記述）`;
+
+const DEFAULT_EDITABLE_PROMPT = `以下の条件でSEO記事を書いてください。
+
+【キーワード】{{keyword}}
+【検索意図】{{intent}}
+【ターゲット読者】{{target}}
+
+【要件】
+- 文字数: 2,000〜3,000字
+- H2見出しを3〜5個、必要に応じてH3を追加
+- E-E-A-T（経験・専門性・権威性・信頼性）を意識した具体的な内容
+- 末尾にFAQセクション（Q&A形式）を3問追加
+- meta descriptionを末尾に1行追加（120字以内、「meta_description:」で始める）`;
+
+async function buildArticlePrompt(kw: Keyword): Promise<string> {
+  let template: string;
+  try {
+    template = await fs.readFile(PROMPT_FILE, 'utf-8');
+  } catch {
+    template = DEFAULT_EDITABLE_PROMPT;
+  }
+
+  const editable = template
+    .replace(/\{\{keyword\}\}/g, kw.keyword)
+    .replace(/\{\{intent\}\}/g, kw.intent)
+    .replace(/\{\{target\}\}/g, kw.target);
+
+  return editable + FIXED_OUTPUT_FORMAT;
 }
 
 function parseArticleOutput(raw: string): { title: string; body: string; description: string } {
@@ -342,7 +360,7 @@ async function main() {
     await page.waitForTimeout(2000);
 
     // プロンプト送信
-    const prompt = buildArticlePrompt(target);
+    const prompt = await buildArticlePrompt(target);
     await submitPrompt(page, prompt);
 
     // 出力待機（最大5分）

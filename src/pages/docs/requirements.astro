@@ -6,7 +6,7 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
   title="要件定義書"
   description="AI SEO自動運用ブログシステムの目的・機能要件・非機能要件・コスト・開発フェーズを定義します。"
   docType="要件定義書"
-  version="1.1"
+  version="1.2"
   date="2026年5月10日"
 >
 
@@ -45,8 +45,8 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
             {[
               ['プロジェクト名', 'AI SEO自動運用ブログシステム'],
               ['目的', 'AIによるSEO記事の自動生成・公開・分析・改善サイクルの完全自動化'],
-              ['対象サイト', 'GitHub Pages（fkdkazu-commits.github.io）'],
-              ['想定運用開始', '2026年6月（Phase 1 完了後）'],
+              ['対象サイト', 'GitHub Pages（fkdkazu-commits.github.io/ai-seo-blog/）'],
+              ['想定運用開始', '2026年5月（Phase 1 完了・稼働中）'],
               ['作成日', '2026年5月10日'],
               ['バージョン', 'v1.1'],
             ].map(([label, value]) => (
@@ -391,7 +391,7 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
             subtitle: 'SEO分析・改善ループ',
             period: '〜 1ヶ月',
             color: 'purple',
-            status: '実装済み',
+            status: '実装中',
             items: [
               'Google Search Console API 連携',
               'CTR・順位データの自動分析',
@@ -434,7 +434,7 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
               </div>
               <div class="flex items-center gap-3 text-xs">
                 <span class="text-gray-500">{period}</span>
-                <span class={`px-2 py-0.5 rounded-full font-medium ${status === '実装済み' ? 'bg-green-100 text-green-700' : status === '計画中' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'}`}>
+                <span class={`px-2 py-0.5 rounded-full font-medium ${status === '実装済み' ? 'bg-green-100 text-green-700' : status === '実装中' ? 'bg-blue-100 text-blue-700' : status === '計画中' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'}`}>
                   {status}
                 </span>
               </div>
