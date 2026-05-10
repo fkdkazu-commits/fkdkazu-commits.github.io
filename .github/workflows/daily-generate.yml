@@ -32,6 +32,9 @@ jobs:
           CLAUDE_COOKIES: ${{ secrets.CLAUDE_COOKIES }}
         run: npm run generate
 
+      - name: Sync OG image cache with git
+        run: git clean -fd -- public/og/
+
       - name: Generate OG image
         env:
           UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
