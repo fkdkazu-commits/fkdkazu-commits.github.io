@@ -1,0 +1,512 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro';
+---
+
+<DocsLayout
+  title="設計書"
+  description="AI SEO自動運用ブログシステムのシステム構成・技術スタック・データフロー・自動化設計・SEO設計の詳細を記述します。"
+  docType="設計書"
+  version="1.0"
+  date="2026年5月10日"
+>
+
+  <!-- 目次 -->
+  <div class="no-print bg-white rounded-xl border border-gray-200 p-6 mb-10">
+    <h2 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4">目次</h2>
+    <ol class="grid md:grid-cols-2 gap-2 text-sm">
+      {[
+        ['1', 'システム全体構成'],
+        ['2', 'ディレクトリ構成'],
+        ['3', '記事生成フロー'],
+        ['4', 'SEO改善ループ'],
+        ['5', 'GitHub Actions設計'],
+        ['6', 'Claude API利用設計'],
+        ['7', 'Google Search Console設計'],
+        ['8', 'SEO実装設計'],
+        ['9', '環境変数・シークレット管理'],
+      ].map(([num, label]) => (
+        <li>
+          <a href={`#section-${num}`} class="text-blue-600 hover:underline">
+            {num}. {label}
+          </a>
+        </li>
+      ))}
+    </ol>
+  </div>
+
+  <div class="space-y-14">
+
+    <!-- 1. システム全体構成 -->
+    <section id="section-1">
+      <h2 class="text-2xl font-bold text-gray-900 border-l-4 border-blue-500 pl-4 mb-6">1. システム全体構成</h2>
+
+      <!-- アーキテクチャ図（テキストベース） -->
+      <div class="bg-gray-900 rounded-xl p-6 mb-6 overflow-x-auto">
+        <pre class="text-green-400 text-sm font-mono leading-relaxed whitespace-pre">{`
+  ┌─────────────────────────────────────────────────────────┐
+  │                  GitHub Repository                       │
+  │  fkdkazu-commits/fkdkazu-commits.github.io              │
+  │                                                         │
+  │  ├─ src/           ← Astroソースコード                  │
+  │  ├─ scripts/       ← 自動化TypeScriptスクリプト         │
+  │  ├─ data/          ← キーワード・GSC分析結果            │
+  │  └─ .github/       ← GitHub Actionsワークフロー        │
+  └────────────────────────┬────────────────────────────────┘
+                           │ push
+                           ▼
+  ┌─────────────────────────────────────────────────────────┐
+  │                  GitHub Actions                          │
+  │                                                         │
+  │  ① daily-generate  AM 5:00  記事生成・内部リンク       │
+  │  ② seo-analysis    AM 6:00  GSC分析・候補抽出          │
+  │  ③ auto-rewrite    AM 7:00  AIリライト・更新           │
+  │  ④ deploy          push時   ビルド・GitHub Pages公開   │
+  └──────────┬────────────────────────────┬────────────────┘
+             │                            │
+             ▼                            ▼
+  ┌──────────────────┐       ┌────────────────────────────┐
+  │   Claude API     │       │   GitHub Pages             │
+  │                  │       │                            │
+  │  ・記事生成      │       │  https://fkdkazu-commits   │
+  │  ・リライト      │       │       .github.io/          │
+  │  ・タイトル改善  │       │                            │
+  │  ・FAQ生成       │       │  ・LP（トップページ）      │
+  │  ・内部リンク分析│       │  ・ブログ記事一覧          │
+  └──────────────────┘       │  ・個別記事ページ          │
+                             └────────────────────────────┘
+             ▲
+             │
+  ┌──────────────────┐
+  │  Search Console  │
+  │       API        │
+  │                  │
+  │  ・クリック数    │
+  │  ・表示回数      │
+  │  ・CTR           │
+  │  ・掲載順位      │
+  └──────────────────┘
+`}</pre>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-4">
+        {[
+          { name: 'フロントエンド', tech: 'Astro 4.x + MDX + Tailwind CSS', role: '静的サイト生成・記事表示・LP' },
+          { name: 'ホスティング', tech: 'GitHub Pages', role: '無料・高速・HTTPS自動・CDN' },
+          { name: 'CI/CD', tech: 'GitHub Actions', role: '自動ビルド・デプロイ・記事生成の定期実行' },
+        ].map(({ name, tech, role }) => (
+          <div class="bg-white rounded-xl border border-gray-200 p-5">
+            <h3 class="text-xs font-semibold text-gray-500 uppercase mb-2">{name}</h3>
+            <p class="font-bold text-gray-900 mb-2 text-sm">{tech}</p>
+            <p class="text-xs text-gray-600">{role}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <!-- 2. ディレクトリ構成 -->
+    <section id="section-2">
+      <h2 class="text-2xl font-bold text-gray-900 border-l-4 border-blue-500 pl-4 mb-6">2. ディレクトリ構成</h2>
+      <div class="bg-gray-900 rounded-xl p-6 overflow-x-auto">
+        <pre class="text-green-400 text-sm font-mono leading-relaxed whitespace-pre">{`
+fkdkazu-commits.github.io/
+│
+├─ src/
+│   ├─ pages/
+│   │   ├─ index.astro              ← LP兼トップページ
+│   │   ├─ blog/
+│   │   │   ├─ index.astro          ← 記事一覧ページ
+│   │   │   └─ [...slug].astro      ← 記事詳細（動的ルーティング）
+│   │   ├─ docs/                    ← クライアント向け資料
+│   │   │   ├─ index.astro          ← 資料一覧
+│   │   │   ├─ requirements.astro   ← 要件定義書
+│   │   │   └─ design.astro         ← 設計書（本ページ）
+│   │   └─ robots.txt.ts
+│   │
+│   ├─ layouts/
+│   │   ├─ BaseLayout.astro         ← 共通HTMLレイアウト
+│   │   ├─ BlogPost.astro           ← 記事ページレイアウト（JSON-LD付き）
+│   │   └─ DocsLayout.astro         ← 資料ページレイアウト
+│   │
+│   ├─ components/
+│   │   ├─ ArticleCard.astro        ← 記事カードUI
+│   │   └─ Breadcrumb.astro         ← パンくずリスト（schema.org付き）
+│   │
+│   └─ content/
+│       ├─ config.ts                ← コンテンツコレクション定義
+│       └─ blog/
+│           ├─ article-001.mdx      ← 自動生成記事
+│           └─ ...
+│
+├─ scripts/                         ← Node.js自動化スクリプト（tsx実行）
+│   ├─ generate-article.ts          ← 記事生成
+│   ├─ rewrite-article.ts           ← AIリライト
+│   ├─ analyze-gsc.ts               ← GSC分析
+│   ├─ generate-og-image.ts         ← OG画像生成
+│   └─ internal-linking.ts          ← 内部リンク追加
+│
+├─ .github/workflows/
+│   ├─ deploy.yml                   ← mainへのpushで自動デプロイ
+│   ├─ daily-generate.yml           ← AM 5:00 記事生成
+│   ├─ seo-analysis.yml             ← AM 6:00 GSC分析
+│   └─ auto-rewrite.yml             ← AM 7:00 AIリライト
+│
+├─ data/
+│   ├─ keywords/
+│   │   └─ keywords.json            ← キーワードリスト（手動管理）
+│   ├─ gsc-metrics.json             ← GSC取得データ（自動更新）
+│   └─ rewrite-candidates.json      ← リライト候補（自動更新）
+│
+└─ public/
+    └─ og/                          ← 自動生成OG画像
+`}</pre>
+      </div>
+    </section>
+
+    <!-- 3. 記事生成フロー -->
+    <section id="section-3">
+      <h2 class="text-2xl font-bold text-gray-900 border-l-4 border-blue-500 pl-4 mb-6">3. 記事生成フロー</h2>
+      <div class="bg-white rounded-xl border border-gray-200 p-6 mb-4">
+        <div class="flex flex-col md:flex-row gap-2 items-start md:items-center flex-wrap">
+          {[
+            'keywords.json から\n未生成キーワードを1件取得',
+            'Claude APIへ\n送信',
+            'タイトル・見出し・\n本文・FAQ を生成',
+            'meta description\n生成（120字以内）',
+            'OG画像生成\n（sharp）',
+            'MDXファイルとして\n保存',
+            'GitHub へ\ncommit・push',
+            'deploy.yml が\n自動起動',
+            'Astroビルド →\nGitHub Pages 公開',
+          ].map((step, i) => (
+            <div class="flex items-center gap-2">
+              <div class="text-center">
+                <div class="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold mb-1 mx-auto">
+                  {i + 1}
+                </div>
+                <p class="text-xs text-gray-600 text-center whitespace-pre-line max-w-[90px]">{step}</p>
+              </div>
+              {i < 8 && <span class="text-blue-300 text-lg hidden md:block">→</span>}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div class="bg-blue-50 rounded-xl p-4 text-sm text-blue-800">
+        <strong>ポイント：</strong> GitHub Actions の daily-generate.yml が AM 5:00 に自動起動し、記事生成 → OG画像 → 内部リンク → commit → push の全工程を無人で実行します。pushを検知した deploy.yml が即座にビルド・デプロイを行い、約2分で記事が公開されます。
+      </div>
+    </section>
+
+    <!-- 4. SEO改善ループ -->
+    <section id="section-4">
+      <h2 class="text-2xl font-bold text-gray-900 border-l-4 border-blue-500 pl-4 mb-6">4. SEO改善ループ</h2>
+      <div class="grid md:grid-cols-2 gap-6">
+        <div class="bg-gray-900 rounded-xl p-5">
+          <pre class="text-green-400 text-xs font-mono leading-relaxed whitespace-pre">{`
+  【毎日 AM 6:00】seo-analysis.yml
+  ──────────────────────────────
+  Search Console API 実行
+         ↓
+  過去28日分のデータ取得
+  - query（検索クエリ）
+  - page（ページURL）
+  - clicks（クリック数）
+  - impressions（表示回数）
+  - ctr（クリック率）
+  - position（掲載順位）
+         ↓
+  リライト候補を自動判定
+  ┌─ CTR < 1.5% かつ
+  │   impressions ≥ 100
+  │   → タイトル改善候補
+  ├─ position > 10 かつ
+  │   impressions ≥ 50
+  │   → 本文リライト候補
+  └─ impressions ≥ 500
+      → 関連記事生成候補
+         ↓
+  rewrite-candidates.json に保存
+
+  【毎日 AM 7:00】auto-rewrite.yml
+  ──────────────────────────────
+  candidates.json から1件取得
+         ↓
+  Claude API でリライト実行
+  ・タイトル改善 or 本文リライト
+         ↓
+  MDXファイル更新 + push
+         ↓
+  GitHub Pages 自動公開
+`}</pre>
+        </div>
+        <div class="space-y-4">
+          <div class="bg-white rounded-xl border border-red-200 p-5">
+            <h3 class="font-bold text-red-700 mb-3 text-sm">リライト条件 1：低CTR改善</h3>
+            <div class="text-xs space-y-1 text-gray-700">
+              <p><span class="font-mono bg-gray-100 px-1 rounded">impressions ≥ 100</span> かつ <span class="font-mono bg-gray-100 px-1 rounded">ctr &lt; 1.5%</span></p>
+              <p class="text-gray-500 mt-2">→ タイトル・descriptionをClaudeが改善</p>
+              <p class="text-gray-500">→ CTR 3%以上を目標に最適化</p>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl border border-orange-200 p-5">
+            <h3 class="font-bold text-orange-700 mb-3 text-sm">リライト条件 2：順位改善</h3>
+            <div class="text-xs space-y-1 text-gray-700">
+              <p><span class="font-mono bg-gray-100 px-1 rounded">position &gt; 10</span> かつ <span class="font-mono bg-gray-100 px-1 rounded">impressions ≥ 50</span></p>
+              <p class="text-gray-500 mt-2">→ E-E-A-T強化・見出し最適化を実施</p>
+              <p class="text-gray-500">→ 10位以内への浮上を目標</p>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl border border-green-200 p-5">
+            <h3 class="font-bold text-green-700 mb-3 text-sm">トリガー条件 3：急増キーワード</h3>
+            <div class="text-xs space-y-1 text-gray-700">
+              <p><span class="font-mono bg-gray-100 px-1 rounded">impressions ≥ 500</span></p>
+              <p class="text-gray-500 mt-2">→ 関連記事を追加生成して内部リンク強化</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. GitHub Actions設計 -->
+    <section id="section-5">
+      <h2 class="text-2xl font-bold text-gray-900 border-l-4 border-blue-500 pl-4 mb-6">5. GitHub Actions 設計</h2>
+      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th class="text-left px-6 py-3 text-gray-600 font-semibold">ワークフロー</th>
+              <th class="text-left px-6 py-3 text-gray-600 font-semibold">起動条件</th>
+              <th class="text-left px-6 py-3 text-gray-600 font-semibold">処理内容</th>
+              <th class="text-left px-6 py-3 text-gray-600 font-semibold">所要時間</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            {[
+              ['deploy.yml', 'mainへのpush・手動', 'npm install → Astroビルド → GitHub Pagesへデプロイ', '約2〜3分'],
+              ['daily-generate.yml', '毎日 AM 5:00 JST', '記事生成 → OG画像 → 内部リンク → commit → push', '約3〜5分'],
+              ['seo-analysis.yml', '毎日 AM 6:00 JST', 'GSCデータ取得 → 分析 → candidates.json 更新', '約1〜2分'],
+              ['auto-rewrite.yml', '毎日 AM 7:00 JST', 'リライト候補取得 → Claude実行 → MDX更新 → push', '約3〜5分'],
+            ].map(([name, trigger, desc, time]) => (
+              <tr>
+                <td class="px-6 py-4 font-mono text-xs text-blue-700">{name}</td>
+                <td class="px-6 py-4 text-gray-700">{trigger}</td>
+                <td class="px-6 py-4 text-gray-700 text-xs">{desc}</td>
+                <td class="px-6 py-4 text-gray-500 text-xs">{time}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p class="text-xs text-gray-500 mt-3">※ 各ワークフローは GitHub 管理画面から手動実行（workflow_dispatch）も可能です。</p>
+    </section>
+
+    <!-- 6. Claude API利用設計 -->
+    <section id="section-6">
+      <h2 class="text-2xl font-bold text-gray-900 border-l-4 border-blue-500 pl-4 mb-6">6. Claude API 利用設計</h2>
+      <div class="space-y-4">
+        {[
+          {
+            use: '記事生成',
+            model: 'claude-sonnet-4-6',
+            maxTokens: '4,096',
+            input: 'キーワード・検索意図・ターゲット読者',
+            output: 'タイトル・本文（Markdown）・FAQ・meta description（JSON形式）',
+            script: 'generate-article.ts',
+          },
+          {
+            use: 'タイトル/description改善',
+            model: 'claude-sonnet-4-6',
+            maxTokens: '1,024',
+            input: '現タイトル・description・CTR・表示回数・現掲載順位',
+            output: '改善後タイトル・description（JSON形式）',
+            script: 'rewrite-article.ts',
+          },
+          {
+            use: '本文リライト',
+            model: 'claude-sonnet-4-6',
+            maxTokens: '8,192',
+            input: '現行記事本文・GSCデータ（順位・CTR）',
+            output: 'E-E-A T強化済みの改善版本文（Markdown形式）',
+            script: 'rewrite-article.ts',
+          },
+          {
+            use: '内部リンク分析',
+            model: 'claude-sonnet-4-6',
+            maxTokens: '1,024',
+            input: '対象記事情報・全記事の一覧（タイトル・キーワード）',
+            output: 'リンク推奨記事のslugリスト（JSON配列）',
+            script: 'internal-linking.ts',
+          },
+        ].map(({ use, model, maxTokens, input, output, script }) => (
+          <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div class="flex items-center gap-4 px-6 py-3 bg-gray-50 border-b border-gray-200">
+              <h3 class="font-bold text-gray-900 text-sm">{use}</h3>
+              <span class="text-xs font-mono text-purple-600 bg-purple-50 px-2 py-0.5 rounded">{model}</span>
+              <span class="text-xs text-gray-500 ml-auto">max_tokens: {maxTokens}</span>
+            </div>
+            <div class="grid md:grid-cols-3 gap-4 px-6 py-4 text-xs">
+              <div>
+                <p class="font-semibold text-gray-500 mb-1">入力</p>
+                <p class="text-gray-700">{input}</p>
+              </div>
+              <div>
+                <p class="font-semibold text-gray-500 mb-1">出力</p>
+                <p class="text-gray-700">{output}</p>
+              </div>
+              <div>
+                <p class="font-semibold text-gray-500 mb-1">スクリプト</p>
+                <p class="font-mono text-blue-700">{script}</p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <!-- 7. Search Console設計 -->
+    <section id="section-7">
+      <h2 class="text-2xl font-bold text-gray-900 border-l-4 border-blue-500 pl-4 mb-6">7. Google Search Console 設計</h2>
+      <div class="grid md:grid-cols-2 gap-6">
+        <div class="bg-white rounded-xl border border-gray-200 p-6">
+          <h3 class="font-bold text-gray-900 mb-4 text-sm">API 設定</h3>
+          <dl class="space-y-3 text-sm">
+            {[
+              ['APIバージョン', 'v1（searchanalytics.query）'],
+              ['認証方式', 'OAuth 2.0（refresh_token）'],
+              ['取得期間', '直近28日間'],
+              ['ディメンション', 'page（ページURL単位）'],
+              ['取得上限', '最大500件/リクエスト'],
+            ].map(([label, value]) => (
+              <div class="flex gap-3">
+                <dt class="text-gray-500 w-28 shrink-0">{label}</dt>
+                <dd class="text-gray-900 font-mono text-xs">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 p-6">
+          <h3 class="font-bold text-gray-900 mb-4 text-sm">取得データ項目</h3>
+          <ul class="space-y-2 text-sm">
+            {[
+              ['page', 'ページURL'],
+              ['clicks', 'クリック数'],
+              ['impressions', '表示回数'],
+              ['ctr', 'クリック率（%）'],
+              ['position', '平均掲載順位'],
+            ].map(([key, desc]) => (
+              <li class="flex gap-3">
+                <span class="font-mono text-purple-600 w-24 shrink-0">{key}</span>
+                <span class="text-gray-700">{desc}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8. SEO実装設計 -->
+    <section id="section-8">
+      <h2 class="text-2xl font-bold text-gray-900 border-l-4 border-blue-500 pl-4 mb-6">8. SEO 実装設計</h2>
+      <div class="grid md:grid-cols-2 gap-4">
+        {[
+          {
+            category: 'テクニカルSEO',
+            items: [
+              ['robots.txt', '全ページ許可・自動生成'],
+              ['canonical', '全ページに正規URLを設定'],
+              ['sitemap.xml', 'Astroで自動生成（将来実装）'],
+              ['HTTPS', 'GitHub Pages で自動有効化'],
+              ['Core Web Vitals', '静的生成でLCP・CLS最適化'],
+            ],
+          },
+          {
+            category: 'コンテンツSEO',
+            items: [
+              ['meta description', 'Claude APIで120字以内に自動生成'],
+              ['OGP', 'og:title/description/imageを全ページ設定'],
+              ['Twitter Card', 'summary_large_imageを設定'],
+              ['FAQ schema', 'FAQ記事にJSON-LDを自動埋め込み'],
+              ['Breadcrumb', 'BreadcrumbList schema付きで実装'],
+            ],
+          },
+          {
+            category: '構造化データ（JSON-LD）',
+            items: [
+              ['BlogPosting', '全記事に自動付与'],
+              ['FAQPage', 'FAQ記事に自動付与'],
+              ['BreadcrumbList', '全ページのパンくずに付与'],
+            ],
+          },
+          {
+            category: '内部リンク設計',
+            items: [
+              ['自動リンク', 'Claude APIで関連記事を分析・挿入'],
+              ['リンク位置', 'FAQ直前または記事末尾'],
+              ['最大件数', '1記事あたり最大3件の関連リンク'],
+            ],
+          },
+        ].map(({ category, items }) => (
+          <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div class="px-6 py-3 bg-gray-50 border-b border-gray-200">
+              <h3 class="font-bold text-gray-900 text-sm">{category}</h3>
+            </div>
+            <table class="w-full text-xs">
+              <tbody class="divide-y divide-gray-100">
+                {items.map(([label, value]) => (
+                  <tr>
+                    <td class="px-6 py-3 text-gray-500 font-medium w-36">{label}</td>
+                    <td class="px-6 py-3 text-gray-700">{value}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <!-- 9. 環境変数・シークレット管理 -->
+    <section id="section-9">
+      <h2 class="text-2xl font-bold text-gray-900 border-l-4 border-blue-500 pl-4 mb-6">9. 環境変数・シークレット管理</h2>
+      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden mb-4">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th class="text-left px-6 py-3 text-gray-600 font-semibold">変数名</th>
+              <th class="text-left px-6 py-3 text-gray-600 font-semibold">用途</th>
+              <th class="text-left px-6 py-3 text-gray-600 font-semibold">保存場所</th>
+              <th class="text-left px-6 py-3 text-gray-600 font-semibold">取得方法</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            {[
+              ['CLAUDE_API_KEY', 'Claude API認証', 'GitHub Secrets', 'console.anthropic.com で発行'],
+              ['GSC_CLIENT_ID', 'Google OAuth クライアントID', 'GitHub Secrets', 'Google Cloud Console で発行'],
+              ['GSC_CLIENT_SECRET', 'Google OAuth シークレット', 'GitHub Secrets', 'Google Cloud Console で発行'],
+              ['GSC_REFRESH_TOKEN', 'Google OAuth トークン', 'GitHub Secrets', 'OAuth認証フローで取得'],
+            ].map(([name, use, store, how]) => (
+              <tr>
+                <td class="px-6 py-4 font-mono text-xs text-blue-700">{name}</td>
+                <td class="px-6 py-4 text-gray-700 text-xs">{use}</td>
+                <td class="px-6 py-4 text-xs">
+                  <span class="bg-green-100 text-green-700 px-2 py-0.5 rounded font-medium">{store}</span>
+                </td>
+                <td class="px-6 py-4 text-gray-500 text-xs">{how}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+        <strong>セキュリティ方針：</strong> APIキー・シークレットはすべて <strong>GitHub Secrets</strong> で管理します。
+        ソースコード・設定ファイル・環境変数ファイル（.env）へのAPIキー記載は禁止し、コードレビュー時に必ず確認します。
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Navigation -->
+  <div class="no-print flex justify-between items-center mt-16 pt-8 border-t border-gray-200">
+    <a href="/docs/requirements/" class="text-sm text-gray-500 hover:text-blue-600">← 要件定義書に戻る</a>
+    <a href="/docs/" class="text-sm text-gray-600 hover:text-blue-600">資料一覧 →</a>
+  </div>
+
+</DocsLayout>

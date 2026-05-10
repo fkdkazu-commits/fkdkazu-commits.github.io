@@ -1,0 +1,457 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro';
+---
+
+<DocsLayout
+  title="要件定義書"
+  description="AI SEO自動運用ブログシステムの目的・機能要件・非機能要件・コスト・開発フェーズを定義します。"
+  docType="要件定義書"
+  version="1.0"
+  date="2026年5月10日"
+>
+
+  <!-- 目次 -->
+  <div class="no-print bg-white rounded-xl border border-gray-200 p-6 mb-10">
+    <h2 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4">目次</h2>
+    <ol class="grid md:grid-cols-2 gap-2 text-sm">
+      {[
+        ['1', 'プロジェクト概要'],
+        ['2', '目的・背景'],
+        ['3', '解決する課題'],
+        ['4', '機能要件'],
+        ['5', '非機能要件'],
+        ['6', '利用技術'],
+        ['7', 'コスト想定'],
+        ['8', '開発フェーズ'],
+        ['9', '制約事項・前提条件'],
+      ].map(([num, label]) => (
+        <li>
+          <a href={`#section-${num}`} class="text-blue-600 hover:underline">
+            {num}. {label}
+          </a>
+        </li>
+      ))}
+    </ol>
+  </div>
+
+  <div class="space-y-14">
+
+    <!-- 1. プロジェクト概要 -->
+    <section id="section-1">
+      <h2 class="text-2xl font-bold text-gray-900 border-l-4 border-blue-500 pl-4 mb-6">1. プロジェクト概要</h2>
+      <div class="bg-white rounded-xl border border-gray-200 p-6">
+        <table class="w-full text-sm">
+          <tbody class="divide-y divide-gray-100">
+            {[
+              ['プロジェクト名', 'AI SEO自動運用ブログシステム'],
+              ['目的', 'AIによるSEO記事の自動生成・公開・分析・改善サイクルの完全自動化'],
+              ['対象サイト', 'GitHub Pages（blog.fkdkazu-commits.github.io）'],
+              ['想定運用開始', '2026年6月（Phase 1 完了後）'],
+              ['作成日', '2026年5月10日'],
+              ['バージョン', 'v1.0 ドラフト'],
+            ].map(([label, value]) => (
+              <tr>
+                <td class="py-3 pr-6 text-gray-500 font-medium w-40 shrink-0">{label}</td>
+                <td class="py-3 text-gray-900">{value}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 2. 目的・背景 -->
+    <section id="section-2">
+      <h2 class="text-2xl font-bold text-gray-900 border-l-4 border-blue-500 pl-4 mb-6">2. 目的・背景</h2>
+      <div class="space-y-4">
+        <div class="bg-white rounded-xl border border-gray-200 p-6">
+          <h3 class="font-bold text-gray-900 mb-3">2.1 背景</h3>
+          <p class="text-gray-700 leading-relaxed text-sm">
+            SEO集客はコンテンツ資産を継続的に積み上げることで効果を発揮しますが、記事執筆・分析・改善には多大な人的リソースが必要です。
+            本プロジェクトでは Claude API を中核として、記事生成から分析・リライトまでを自動化し、最小限の人手で継続的なSEO改善サイクルを実現します。
+          </p>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 p-6">
+          <h3 class="font-bold text-gray-900 mb-3">2.2 目的</h3>
+          <ul class="space-y-2 text-sm text-gray-700">
+            {[
+              'SEO記事の自動生成・定期公開により、コンテンツ資産を継続的に積み上げる',
+              'Google Search Console のデータをAIが自動分析し、改善アクションを自律実行する',
+              '人的工数を最小化しつつ、検索流入・CVRの向上を実現する',
+              '低コスト（API利用料のみ）で高品質なSEO運用を実現する',
+            ].map((item) => (
+              <li class="flex gap-3">
+                <span class="text-blue-500 font-bold shrink-0">✓</span>
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. 解決する課題 -->
+    <section id="section-3">
+      <h2 class="text-2xl font-bold text-gray-900 border-l-4 border-blue-500 pl-4 mb-6">3. 解決する課題</h2>
+      <div class="grid md:grid-cols-3 gap-4">
+        {[
+          {
+            icon: '⏱️',
+            problem: 'リソース不足',
+            desc: '記事を継続的に書く時間・人手がない',
+            solution: 'Claude APIが毎日自動で記事を生成・公開',
+          },
+          {
+            icon: '📊',
+            problem: '分析の遅れ',
+            desc: 'GSCデータを見て改善するサイクルが回っていない',
+            solution: 'Search Console APIを毎日自動取得・AIが改善判断',
+          },
+          {
+            icon: '✍️',
+            problem: 'リライト未実施',
+            desc: '順位低下・CTR低下に気づいても対応できない',
+            solution: 'AIが自動でリライト・タイトル改善を実行',
+          },
+        ].map(({ icon, problem, desc, solution }) => (
+          <div class="bg-white rounded-xl border border-gray-200 p-5">
+            <div class="text-3xl mb-3">{icon}</div>
+            <h3 class="font-bold text-gray-900 mb-2">{problem}</h3>
+            <p class="text-xs text-red-600 bg-red-50 rounded p-2 mb-3">課題: {desc}</p>
+            <p class="text-xs text-green-700 bg-green-50 rounded p-2">解決: {solution}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <!-- 4. 機能要件 -->
+    <section id="section-4">
+      <h2 class="text-2xl font-bold text-gray-900 border-l-4 border-blue-500 pl-4 mb-6">4. 機能要件</h2>
+      <div class="space-y-4">
+        {[
+          {
+            id: 'F-01',
+            category: '記事生成',
+            priority: '必須',
+            requirements: [
+              'キーワードリストからSEO記事を自動生成する',
+              'タイトル・見出し（H2/H3）・本文・FAQを自動生成する',
+              'meta descriptionを自動生成する（120字以内）',
+              'MDX形式でsrc/content/blog/に保存する',
+            ],
+          },
+          {
+            id: 'F-02',
+            category: '自動公開',
+            priority: '必須',
+            requirements: [
+              '生成した記事を自動でGitHub mainブランチへcommit・pushする',
+              'pushを契機にGitHub Actionsが自動でビルド・GitHub Pagesへデプロイする',
+              '毎日 AM 5:00（JST）に自動実行する',
+            ],
+          },
+          {
+            id: 'F-03',
+            category: 'SEO分析',
+            priority: '必須',
+            requirements: [
+              'Google Search Console APIから過去28日間のデータを取得する',
+              '取得項目：クエリ・ページURL・クリック数・表示回数・CTR・掲載順位',
+              'リライト候補を自動で抽出し、JSONファイルに出力する',
+            ],
+          },
+          {
+            id: 'F-04',
+            category: 'AIリライト',
+            priority: '必須',
+            requirements: [
+              '表示回数100以上・CTR1.5%未満の記事のタイトル・descriptionを改善する',
+              '掲載順位10位以下の記事の本文をリライトする',
+              'リライト後の記事を自動でGitHubへpush・公開する',
+            ],
+          },
+          {
+            id: 'F-05',
+            category: '内部リンク',
+            priority: '推奨',
+            requirements: [
+              '新規記事生成時に既存記事との関連性をAIが分析する',
+              '関連性の高い記事へのリンクを自動で追加する',
+            ],
+          },
+          {
+            id: 'F-06',
+            category: 'OG画像生成',
+            priority: '推奨',
+            requirements: [
+              '記事タイトルをもとにOGP画像（1200×630px）を自動生成する',
+              '生成画像を public/og/ に保存し、記事と紐付ける',
+            ],
+          },
+        ].map(({ id, category, priority, requirements }) => (
+          <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div class="flex items-center gap-4 px-6 py-4 bg-gray-50 border-b border-gray-200">
+              <span class="text-xs font-mono text-gray-500">{id}</span>
+              <h3 class="font-bold text-gray-900">{category}</h3>
+              <span class={`text-xs px-2 py-0.5 rounded-full font-medium ml-auto ${priority === '必須' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                {priority}
+              </span>
+            </div>
+            <ul class="px-6 py-4 space-y-2">
+              {requirements.map((req) => (
+                <li class="text-sm text-gray-700 flex gap-2">
+                  <span class="text-gray-400 shrink-0">•</span>
+                  {req}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <!-- 5. 非機能要件 -->
+    <section id="section-5">
+      <h2 class="text-2xl font-bold text-gray-900 border-l-4 border-blue-500 pl-4 mb-6">5. 非機能要件</h2>
+      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th class="text-left px-6 py-3 text-gray-600 font-semibold w-32">区分</th>
+              <th class="text-left px-6 py-3 text-gray-600 font-semibold">要件</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            {[
+              ['可用性', 'GitHub Pages の SLA に準拠（月次 99.9% 以上を目標）'],
+              ['パフォーマンス', 'Core Web Vitals: LCP 2.5秒以下、CLS 0.1以下（静的生成で達成）'],
+              ['スケーラビリティ', 'キーワードリストを追加するだけで記事数を無制限に拡張可能'],
+              ['セキュリティ', 'APIキーはすべてGitHub Secretsで管理。コードへの埋め込み禁止'],
+              ['保守性', 'すべての自動化はGitHub Actionsで管理。設定変更はYAMLファイルのみ'],
+              ['コスト上限', '月次Claude API費用が設定上限を超えた場合は生成を停止する仕組みを設ける'],
+              ['ログ・監視', 'GitHub Actionsのログで自動化の実行状況を確認可能'],
+            ].map(([label, value]) => (
+              <tr>
+                <td class="px-6 py-4 text-gray-500 font-medium">{label}</td>
+                <td class="px-6 py-4 text-gray-700">{value}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 6. 利用技術 -->
+    <section id="section-6">
+      <h2 class="text-2xl font-bold text-gray-900 border-l-4 border-blue-500 pl-4 mb-6">6. 利用技術</h2>
+      <div class="grid md:grid-cols-2 gap-4">
+        {[
+          { layer: 'フロントエンド', items: ['Astro 4.x（静的サイトジェネレーター）', 'MDX（記事フォーマット）', 'Tailwind CSS（スタイリング）'] },
+          { layer: 'ホスティング・CI/CD', items: ['GitHub Pages（ホスティング）', 'GitHub Actions（自動化パイプライン）', 'GitHub（ソースコード・記事管理）'] },
+          { layer: 'AI・外部API', items: ['Claude API / claude-sonnet-4-6（記事生成・リライト）', 'Google Search Console API v1（SEO分析）', 'googleapis（Node.js クライアント）'] },
+          { layer: 'ユーティリティ', items: ['TypeScript（スクリプト実装）', 'sharp（OG画像生成）', '@anthropic-ai/sdk（Anthropic SDK）'] },
+        ].map(({ layer, items }) => (
+          <div class="bg-white rounded-xl border border-gray-200 p-5">
+            <h3 class="font-bold text-gray-900 mb-3 text-sm">{layer}</h3>
+            <ul class="space-y-2">
+              {items.map((item) => (
+                <li class="text-sm text-gray-700 flex gap-2">
+                  <span class="text-blue-400 shrink-0">▸</span>
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <!-- 7. コスト想定 -->
+    <section id="section-7">
+      <h2 class="text-2xl font-bold text-gray-900 border-l-4 border-blue-500 pl-4 mb-6">7. コスト想定</h2>
+      <div class="grid md:grid-cols-2 gap-6">
+        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div class="px-6 py-4 bg-gray-50 border-b border-gray-200">
+            <h3 class="font-bold text-gray-900">初期費用</h3>
+          </div>
+          <table class="w-full text-sm">
+            <tbody class="divide-y divide-gray-100">
+              {[
+                ['Astro / GitHub / GitHub Pages', '無料'],
+                ['ドメイン（任意）', '約1,000〜2,000円/年'],
+                ['開発・設定費', '別途見積'],
+              ].map(([item, cost]) => (
+                <tr>
+                  <td class="px-6 py-3 text-gray-700">{item}</td>
+                  <td class="px-6 py-3 text-right font-medium text-gray-900">{cost}</td>
+                </tr>
+              ))}
+              <tr class="bg-blue-50">
+                <td class="px-6 py-3 font-bold text-gray-900">合計（ドメインなし）</td>
+                <td class="px-6 py-3 text-right font-bold text-blue-600">¥0</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div class="px-6 py-4 bg-gray-50 border-b border-gray-200">
+            <h3 class="font-bold text-gray-900">月額運用費（概算）</h3>
+          </div>
+          <table class="w-full text-sm">
+            <tbody class="divide-y divide-gray-100">
+              {[
+                ['GitHub Pages', '無料'],
+                ['Claude API（記事1本/日）', '約3,000〜8,000円'],
+                ['Claude API（リライト込み）', '約8,000〜20,000円'],
+                ['ドメイン', '約100〜200円/月'],
+              ].map(([item, cost]) => (
+                <tr>
+                  <td class="px-6 py-3 text-gray-700">{item}</td>
+                  <td class="px-6 py-3 text-right font-medium text-gray-900">{cost}</td>
+                </tr>
+              ))}
+              <tr class="bg-blue-50">
+                <td class="px-6 py-3 font-bold text-gray-900">月額合計（目安）</td>
+                <td class="px-6 py-3 text-right font-bold text-blue-600">¥3,000〜¥20,000</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <p class="text-xs text-gray-500 mt-3">※ Claude API費用は生成記事数・文字数・リライト頻度によって変動します。月次上限の設定が可能です。</p>
+    </section>
+
+    <!-- 8. 開発フェーズ -->
+    <section id="section-8">
+      <h2 class="text-2xl font-bold text-gray-900 border-l-4 border-blue-500 pl-4 mb-6">8. 開発フェーズ</h2>
+      <div class="space-y-4">
+        {[
+          {
+            phase: 'Phase 1',
+            subtitle: 'MVP（最小構成）',
+            period: '〜 2週間',
+            color: 'blue',
+            status: '実装済み',
+            items: [
+              'Astro + GitHub Pages 環境構築',
+              'MDX記事の表示・ルーティング',
+              'Claude API による記事自動生成',
+              'GitHub Actions による自動投稿・デプロイ',
+            ],
+          },
+          {
+            phase: 'Phase 2',
+            subtitle: 'SEO分析・改善ループ',
+            period: '〜 1ヶ月',
+            color: 'purple',
+            status: '実装済み',
+            items: [
+              'Google Search Console API 連携',
+              'CTR・順位データの自動分析',
+              'AIによる自動リライト',
+              'リライト結果の自動公開',
+            ],
+          },
+          {
+            phase: 'Phase 3',
+            subtitle: '品質向上・高度化',
+            period: '〜 2ヶ月',
+            color: 'green',
+            status: '計画中',
+            items: [
+              '内部リンク自動最適化',
+              'OG画像自動生成',
+              'sitemap.xml 自動生成',
+              'パフォーマンスモニタリング強化',
+            ],
+          },
+          {
+            phase: 'Phase 4',
+            subtitle: 'AIエージェント化',
+            period: '3ヶ月以降',
+            color: 'orange',
+            status: '将来計画',
+            items: [
+              '競合サイト・SERP自動分析',
+              'AIによる戦略提案・Slack通知',
+              '自動レポート生成',
+              '完全自律SEO運用の実現',
+            ],
+          },
+        ].map(({ phase, subtitle, period, color, status, items }) => (
+          <div class={`bg-white rounded-xl border-2 ${color === 'blue' ? 'border-blue-200' : color === 'purple' ? 'border-purple-200' : color === 'green' ? 'border-green-200' : 'border-orange-200'} overflow-hidden`}>
+            <div class={`flex items-center justify-between px-6 py-4 ${color === 'blue' ? 'bg-blue-50' : color === 'purple' ? 'bg-purple-50' : color === 'green' ? 'bg-green-50' : 'bg-orange-50'}`}>
+              <div class="flex items-center gap-3">
+                <span class={`font-bold text-sm ${color === 'blue' ? 'text-blue-700' : color === 'purple' ? 'text-purple-700' : color === 'green' ? 'text-green-700' : 'text-orange-700'}`}>{phase}</span>
+                <h3 class="font-bold text-gray-900">{subtitle}</h3>
+              </div>
+              <div class="flex items-center gap-3 text-xs">
+                <span class="text-gray-500">{period}</span>
+                <span class={`px-2 py-0.5 rounded-full font-medium ${status === '実装済み' ? 'bg-green-100 text-green-700' : status === '計画中' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'}`}>
+                  {status}
+                </span>
+              </div>
+            </div>
+            <ul class="px-6 py-4 grid md:grid-cols-2 gap-2">
+              {items.map((item) => (
+                <li class="text-sm text-gray-700 flex gap-2">
+                  <span class="text-gray-400 shrink-0">•</span>
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <!-- 9. 制約事項 -->
+    <section id="section-9">
+      <h2 class="text-2xl font-bold text-gray-900 border-l-4 border-blue-500 pl-4 mb-6">9. 制約事項・前提条件</h2>
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="bg-white rounded-xl border border-gray-200 p-6">
+          <h3 class="font-bold text-gray-900 mb-4">制約事項</h3>
+          <ul class="space-y-3 text-sm text-gray-700">
+            {[
+              'GitHub Pages はサーバーサイド処理不可（静的サイトのみ）',
+              'Google Search Console APIはサイト認証後（Googleサーチコンソールへの登録）が必要',
+              'Claude APIの利用には Anthropic のAPIキー取得が必要',
+              '生成記事の品質はキーワードの精度・プロンプト設計に依存する',
+            ].map((item) => (
+              <li class="flex gap-2">
+                <span class="text-red-400 shrink-0">!</span>
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 p-6">
+          <h3 class="font-bold text-gray-900 mb-4">前提条件</h3>
+          <ul class="space-y-3 text-sm text-gray-700">
+            {[
+              'GitHubアカウントが存在すること',
+              'Google Search Console にサイトが登録済みであること（Phase 2以降）',
+              'Anthropic アカウントとAPIキーを取得済みであること',
+              'キーワードリスト（data/keywords/keywords.json）を定期的に更新すること',
+            ].map((item) => (
+              <li class="flex gap-2">
+                <span class="text-green-500 shrink-0">✓</span>
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Navigation -->
+  <div class="no-print flex justify-between items-center mt-16 pt-8 border-t border-gray-200">
+    <a href="/docs/" class="text-sm text-gray-500 hover:text-blue-600">← 資料一覧に戻る</a>
+    <a href="/docs/design/" class="text-sm bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+      設計書を見る →
+    </a>
+  </div>
+
+</DocsLayout>

@@ -1,0 +1,89 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro';
+---
+
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>資料一覧 | AI SEO自動運用ブログシステム</title>
+    <meta name="robots" content="noindex" />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet" />
+    <style>body { font-family: 'Noto Sans JP', sans-serif; }</style>
+  </head>
+  <body class="bg-gray-50 min-h-screen">
+    <div class="max-w-4xl mx-auto px-6 py-16">
+
+      <!-- Header -->
+      <div class="text-center mb-16">
+        <p class="text-blue-600 text-sm font-semibold tracking-widest uppercase mb-4">Project Documents</p>
+        <h1 class="text-4xl font-bold text-gray-900 mb-4">AI SEO自動運用ブログシステム</h1>
+        <p class="text-gray-600 text-lg">提案資料・設計ドキュメント一覧</p>
+      </div>
+
+      <!-- Document Cards -->
+      <div class="grid md:grid-cols-2 gap-6 mb-12">
+        <a href="/docs/requirements/" class="group bg-white rounded-2xl border border-gray-200 p-8 hover:border-blue-300 hover:shadow-lg transition-all">
+          <div class="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center mb-5 group-hover:bg-blue-100 transition-colors">
+            <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </div>
+          <p class="text-xs font-semibold text-blue-600 uppercase tracking-wider mb-2">Document 01</p>
+          <h2 class="text-xl font-bold text-gray-900 mb-3 group-hover:text-blue-600 transition-colors">要件定義書</h2>
+          <p class="text-gray-600 text-sm leading-relaxed">
+            システムの目的・背景・機能要件・非機能要件・コスト・開発フェーズを定義します。
+          </p>
+          <div class="mt-6 flex items-center gap-3 text-xs text-gray-400">
+            <span class="bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">ドラフト v1.0</span>
+            <span>2026年5月</span>
+          </div>
+        </a>
+
+        <a href="/docs/design/" class="group bg-white rounded-2xl border border-gray-200 p-8 hover:border-blue-300 hover:shadow-lg transition-all">
+          <div class="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center mb-5 group-hover:bg-purple-100 transition-colors">
+            <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+            </svg>
+          </div>
+          <p class="text-xs font-semibold text-purple-600 uppercase tracking-wider mb-2">Document 02</p>
+          <h2 class="text-xl font-bold text-gray-900 mb-3 group-hover:text-purple-600 transition-colors">設計書</h2>
+          <p class="text-gray-600 text-sm leading-relaxed">
+            システム全体構成・技術スタック・データフロー・自動化設計・SEO設計の詳細を記述します。
+          </p>
+          <div class="mt-6 flex items-center gap-3 text-xs text-gray-400">
+            <span class="bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">ドラフト v1.0</span>
+            <span>2026年5月</span>
+          </div>
+        </a>
+      </div>
+
+      <!-- System Summary -->
+      <div class="bg-white rounded-2xl border border-gray-200 p-8">
+        <h2 class="text-lg font-bold text-gray-900 mb-6">プロジェクト概要</h2>
+        <dl class="grid md:grid-cols-2 gap-x-8 gap-y-4 text-sm">
+          {[
+            ['プロジェクト名', 'AI SEO自動運用ブログシステム'],
+            ['フロントエンド', 'Astro + MDX + Tailwind CSS'],
+            ['ホスティング', 'GitHub Pages'],
+            ['AI エンジン', 'Claude API (Anthropic)'],
+            ['SEO分析', 'Google Search Console API'],
+            ['自動化基盤', 'GitHub Actions'],
+            ['想定月額コスト', '¥3,000〜¥20,000（API使用量依存）'],
+            ['初期費用', '¥0〜¥5,000（ドメイン取得費のみ）'],
+          ].map(([label, value]) => (
+            <div class="flex gap-3">
+              <dt class="text-gray-500 shrink-0 w-36">{label}</dt>
+              <dd class="font-medium text-gray-900">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+
+      <p class="text-center text-sm text-gray-400 mt-10">
+        本資料はご提案用ドキュメントです。内容はご要望に応じて変更可能です。
+      </p>
+    </div>
+  </body>
+</html>
