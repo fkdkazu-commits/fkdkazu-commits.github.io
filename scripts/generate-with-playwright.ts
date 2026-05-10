@@ -195,11 +195,15 @@ async function waitForOutput(
 }
 
 function extractTaggedBlock(text: string): string | null {
+  // Markdownコードブロックを最優先（## などの記号が保持される）
+  const codeBlock = text.match(/```(?:markdown)?\r?\n([\s\S]*?)```/i);
+  if (codeBlock && codeBlock[1].trim().length >= 200) return codeBlock[1].trim();
+
   const tags = ['ARTICLE_DRAFT', 'FACTCHECKED_ARTICLE'];
   for (const tag of tags) {
     const re = new RegExp(`\\[\\s*${tag}\\s*\\]([\\s\\S]*?)\\[\\s*/\\s*${tag}\\s*\\]`, 'i');
     const m = text.match(re);
-    if (m) return m[0].trim();
+    if (m) return m[1].trim();
   }
   return null;
 }
@@ -230,24 +234,33 @@ function buildArticlePrompt(kw: Keyword): string {
 - meta descriptionを末尾に1行追加（120字以内、「meta_description:」で始める）
 
 【出力形式】
-[ARTICLE_DRAFT]
+記事全体を必ず以下のMarkdownコードブロックの中に記述してください（# ## ### などの記号をそのまま含めること）：
+
+\`\`\`markdown
 # タイトル
 
-（本文をMarkdown形式で記述）
+## 見出し1
+
+本文...
 
 ## よくある質問
 
 ### 質問1
-回答1
 
-[/ARTICLE_DRAFT]
+回答1
+\`\`\`
+
 meta_description: （ここにmeta descriptionを記述）`;
 }
 
 function parseArticleOutput(raw: string): { title: string; body: string; description: string } {
-  const inner = raw.replace(/\[\/?\s*ARTICLE_DRAFT\s*\]/gi, '').trim();
+  // Markdownコードブロックを優先抽出（## 等の記号が保持されている）
+  const codeBlock = raw.match(/```(?:markdown)?\r?\n([\s\S]*?)```/i);
+  const inner = codeBlock
+    ? codeBlock[1].trim()
+    : raw.replace(/\[\/?\s*ARTICLE_DRAFT\s*\]/gi, '').trim();
 
-  // タイトル: 最初に # 行を探し、なければ最初の非空行をフォールバック
+  // タイトル: # 見出し → 最初の非空行の順でフォールバック
   const mdHeading = inner.match(/^#\s+(.+)/m);
   const firstLine = inner.match(/^([^\n]{4,})/m);
   const title = mdHeading
@@ -259,7 +272,6 @@ function parseArticleOutput(raw: string): { title: string; body: string; descrip
 
   const body = inner
     .replace(/^#\s+.+\n?/m, '')
-    .replace(new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\n?`, 'm'), '')
     .replace(/meta_description:.+$/im, '')
     .trim();
 
