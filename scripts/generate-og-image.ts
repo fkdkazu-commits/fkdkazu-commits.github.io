@@ -18,10 +18,10 @@ const OG_HEIGHT = 630;
 const ACCENT_COLOR = '#3b82f6';
 
 function extractFrontmatter(content: string): Record<string, string> {
-  const match = content.match(/^---\n([\s\S]*?)\n---/);
+  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!match) return {};
   const result: Record<string, string> = {};
-  for (const line of match[1].split('\n')) {
+  for (const line of match[1].split(/\r?\n/)) {
     const [key, ...vals] = line.split(':');
     if (key && vals.length) result[key.trim()] = vals.join(':').trim().replace(/^"|"$/g, '');
   }
