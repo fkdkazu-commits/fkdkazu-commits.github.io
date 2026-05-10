@@ -3,35 +3,55 @@
     "keyword": "SEO対策 初心者",
     "intent": "SEO対策の基本を知りたい初心者が検索するキーワード",
     "target": "ブログを始めたばかりの個人・中小企業のWeb担当者",
-    "tags": ["SEO", "初心者", "Web集客"],
-    "generated": false
+    "tags": [
+      "SEO",
+      "初心者",
+      "Web集客"
+    ],
+    "generated": true
   },
   {
     "keyword": "ブログ 収益化 方法",
     "intent": "ブログで収入を得る方法を調べている人",
     "target": "副業・個人ブロガー",
-    "tags": ["ブログ", "収益化", "副業"],
+    "tags": [
+      "ブログ",
+      "収益化",
+      "副業"
+    ],
     "generated": false
   },
   {
     "keyword": "Google サーチコンソール 使い方",
     "intent": "Search Consoleの操作方法を知りたい人",
     "target": "ブログ・サイト運営者",
-    "tags": ["SEO", "Search Console", "分析"],
+    "tags": [
+      "SEO",
+      "Search Console",
+      "分析"
+    ],
     "generated": false
   },
   {
     "keyword": "記事 書き方 SEO",
     "intent": "SEOを意識した記事の書き方を学びたい人",
     "target": "コンテンツライター・ブロガー",
-    "tags": ["SEO", "ライティング", "コンテンツ"],
+    "tags": [
+      "SEO",
+      "ライティング",
+      "コンテンツ"
+    ],
     "generated": false
   },
   {
     "keyword": "内部リンク SEO 効果",
     "intent": "内部リンクがSEOに与える影響を知りたい人",
     "target": "SEO担当者・サイト運営者",
-    "tags": ["SEO", "内部リンク", "上位表示"],
+    "tags": [
+      "SEO",
+      "内部リンク",
+      "上位表示"
+    ],
     "generated": false
   }
 ]
