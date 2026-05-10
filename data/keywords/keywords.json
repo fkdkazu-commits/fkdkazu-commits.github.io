@@ -1,1 +1,12 @@
-[]
+[
+  {
+    "keyword": "副業 AI",
+    "intent": "AIを活用して副業で稼ぎたい",
+    "target": "AI初心者で副業で稼ぎたい人",
+    "tags": [
+      "副業",
+      "AI"
+    ],
+    "generated": false
+  }
+]
