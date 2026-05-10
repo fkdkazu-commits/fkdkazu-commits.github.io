@@ -6,7 +6,7 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
   title="要件定義書"
   description="AI SEO自動運用ブログシステムの目的・機能要件・非機能要件・コスト・開発フェーズを定義します。"
   docType="要件定義書"
-  version="1.0"
+  version="1.1"
   date="2026年5月10日"
 >
 
@@ -45,10 +45,10 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
             {[
               ['プロジェクト名', 'AI SEO自動運用ブログシステム'],
               ['目的', 'AIによるSEO記事の自動生成・公開・分析・改善サイクルの完全自動化'],
-              ['対象サイト', 'GitHub Pages（blog.fkdkazu-commits.github.io）'],
+              ['対象サイト', 'GitHub Pages（fkdkazu-commits.github.io）'],
               ['想定運用開始', '2026年6月（Phase 1 完了後）'],
               ['作成日', '2026年5月10日'],
-              ['バージョン', 'v1.0 ドラフト'],
+              ['バージョン', 'v1.1'],
             ].map(([label, value]) => (
               <tr>
                 <td class="py-3 pr-6 text-gray-500 font-medium w-40 shrink-0">{label}</td>
@@ -57,6 +57,16 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
             ))}
           </tbody>
         </table>
+      </div>
+
+      <!-- v1.1 更新サマリー -->
+      <div class="mt-4 bg-blue-50 border border-blue-200 rounded-xl p-5 text-sm">
+        <p class="font-bold text-blue-800 mb-2">v1.1 変更点</p>
+        <ul class="space-y-1 text-blue-700">
+          <li class="flex gap-2"><span class="shrink-0">•</span>AI記事生成の方式を <strong>Claude API（従量課金）→ Playwright + Claude Pro（月額固定）</strong> に変更</li>
+          <li class="flex gap-2"><span class="shrink-0">•</span>月額運用コストを <strong>最大¥20,000 → 約¥3,000</strong> に削減</li>
+          <li class="flex gap-2"><span class="shrink-0">•</span>APIキーの管理・従量課金リスクを完全に排除</li>
+        </ul>
       </div>
     </section>
 
@@ -68,7 +78,9 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
           <h3 class="font-bold text-gray-900 mb-3">2.1 背景</h3>
           <p class="text-gray-700 leading-relaxed text-sm">
             SEO集客はコンテンツ資産を継続的に積み上げることで効果を発揮しますが、記事執筆・分析・改善には多大な人的リソースが必要です。
-            本プロジェクトでは Claude API を中核として、記事生成から分析・リライトまでを自動化し、最小限の人手で継続的なSEO改善サイクルを実現します。
+            本プロジェクトでは <strong>Playwright（ブラウザ自動化）によるClaude.ai Web の自動操作</strong>を中核として、
+            記事生成から内部リンク最適化までを自動化し、最小限の人手で継続的なSEO改善サイクルを実現します。
+            Claude APIキーを使わずClaude Proサブスクリプション（月額固定）のみで動作するため、コスト予測が容易です。
           </p>
         </div>
         <div class="bg-white rounded-xl border border-gray-200 p-6">
@@ -76,9 +88,9 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
           <ul class="space-y-2 text-sm text-gray-700">
             {[
               'SEO記事の自動生成・定期公開により、コンテンツ資産を継続的に積み上げる',
-              'Google Search Console のデータをAIが自動分析し、改善アクションを自律実行する',
+              'Google Search Console のデータを定期的に分析し、改善アクションを継続実行する',
               '人的工数を最小化しつつ、検索流入・CVRの向上を実現する',
-              '低コスト（API利用料のみ）で高品質なSEO運用を実現する',
+              'Claude Proサブスクリプションのみで動作し、月額コストを固定・低コストに抑える',
             ].map((item) => (
               <li class="flex gap-3">
                 <span class="text-blue-500 font-bold shrink-0">✓</span>
@@ -99,19 +111,19 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
             icon: '⏱️',
             problem: 'リソース不足',
             desc: '記事を継続的に書く時間・人手がない',
-            solution: 'Claude APIが毎日自動で記事を生成・公開',
+            solution: 'PlaywrightがClaude.ai Webを自動操作し、毎日記事を生成・公開',
+          },
+          {
+            icon: '💰',
+            problem: '高いAPI費用',
+            desc: 'Claude APIの従量課金で月3〜20万円かかる',
+            solution: 'Claude Proサブスクリプション（月約3,000円）のみで同等の自動化を実現',
           },
           {
             icon: '📊',
-            problem: '分析の遅れ',
+            problem: '分析・改善の停滞',
             desc: 'GSCデータを見て改善するサイクルが回っていない',
-            solution: 'Search Console APIを毎日自動取得・AIが改善判断',
-          },
-          {
-            icon: '✍️',
-            problem: 'リライト未実施',
-            desc: '順位低下・CTR低下に気づいても対応できない',
-            solution: 'AIが自動でリライト・タイトル改善を実行',
+            solution: 'Search Console APIで毎日分析し、低パフォーマンス記事を自動で改善候補に抽出',
           },
         ].map(({ icon, problem, desc, solution }) => (
           <div class="bg-white rounded-xl border border-gray-200 p-5">
@@ -131,13 +143,14 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
         {[
           {
             id: 'F-01',
-            category: '記事生成',
+            category: '記事生成（Playwright）',
             priority: '必須',
             requirements: [
-              'キーワードリストからSEO記事を自動生成する',
-              'タイトル・見出し（H2/H3）・本文・FAQを自動生成する',
+              'キーワードリスト（keywords.json）から未生成キーワードを1件取得する',
+              'PlaywrightがChromiumを起動しClaude.ai Webにセッションで自動ログインする',
+              'プロンプトを自動入力・送信し、タイトル・見出し・本文・FAQを生成する',
               'meta descriptionを自動生成する（120字以内）',
-              'MDX形式でsrc/content/blog/に保存する',
+              '生成結果をMDX形式でsrc/content/blog/に保存する',
             ],
           },
           {
@@ -162,30 +175,32 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
           },
           {
             id: 'F-04',
-            category: 'AIリライト',
+            category: '内部リンク最適化（Playwright）',
             priority: '必須',
             requirements: [
-              '表示回数100以上・CTR1.5%未満の記事のタイトル・descriptionを改善する',
-              '掲載順位10位以下の記事の本文をリライトする',
-              'リライト後の記事を自動でGitHubへpush・公開する',
+              '新規記事生成後、PlaywrightがClaude.aiで既存記事との関連性を分析する',
+              '関連性の高い記事（最大3件）へのリンクを記事末尾に自動挿入する',
+              '記事生成ワークフローと同一セッション内で実行しコストを抑える',
             ],
           },
           {
             id: 'F-05',
-            category: '内部リンク',
-            priority: '推奨',
-            requirements: [
-              '新規記事生成時に既存記事との関連性をAIが分析する',
-              '関連性の高い記事へのリンクを自動で追加する',
-            ],
-          },
-          {
-            id: 'F-06',
             category: 'OG画像生成',
             priority: '推奨',
             requirements: [
               '記事タイトルをもとにOGP画像（1200×630px）を自動生成する',
               '生成画像を public/og/ に保存し、記事と紐付ける',
+              'sharpライブラリで実装しAPIコスト不要',
+            ],
+          },
+          {
+            id: 'F-06',
+            category: 'AIリライト',
+            priority: '推奨',
+            requirements: [
+              '表示回数100以上・CTR1.5%未満の記事のタイトル・descriptionを改善する',
+              '掲載順位10位以下の記事の本文をリライトする（Phase 2以降）',
+              'リライト後の記事を自動でGitHubへpush・公開する',
             ],
           },
         ].map(({ id, category, priority, requirements }) => (
@@ -224,12 +239,12 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
           <tbody class="divide-y divide-gray-100">
             {[
               ['可用性', 'GitHub Pages の SLA に準拠（月次 99.9% 以上を目標）'],
-              ['パフォーマンス', 'Core Web Vitals: LCP 2.5秒以下、CLS 0.1以下（静的生成で達成）'],
+              ['パフォーマンス', 'Core Web Vitals: LCP 2.5秒以下、CLS 0.1以下（Astro静的生成で達成）'],
               ['スケーラビリティ', 'キーワードリストを追加するだけで記事数を無制限に拡張可能'],
-              ['セキュリティ', 'APIキーはすべてGitHub Secretsで管理。コードへの埋め込み禁止'],
+              ['セキュリティ', 'Claude.aiセッションCookieはGitHub Secretsで管理。コードへの埋め込み禁止'],
               ['保守性', 'すべての自動化はGitHub Actionsで管理。設定変更はYAMLファイルのみ'],
-              ['コスト上限', '月次Claude API費用が設定上限を超えた場合は生成を停止する仕組みを設ける'],
-              ['ログ・監視', 'GitHub Actionsのログで自動化の実行状況を確認可能'],
+              ['コスト管理', 'Claude Proサブスクリプション（月額固定）のため従量課金リスクなし'],
+              ['ログ・監視', 'GitHub Actionsのログで自動化の実行状況をリアルタイム確認可能'],
             ].map(([label, value]) => (
               <tr>
                 <td class="px-6 py-4 text-gray-500 font-medium">{label}</td>
@@ -246,10 +261,39 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
       <h2 class="text-2xl font-bold text-gray-900 border-l-4 border-blue-500 pl-4 mb-6">6. 利用技術</h2>
       <div class="grid md:grid-cols-2 gap-4">
         {[
-          { layer: 'フロントエンド', items: ['Astro 4.x（静的サイトジェネレーター）', 'MDX（記事フォーマット）', 'Tailwind CSS（スタイリング）'] },
-          { layer: 'ホスティング・CI/CD', items: ['GitHub Pages（ホスティング）', 'GitHub Actions（自動化パイプライン）', 'GitHub（ソースコード・記事管理）'] },
-          { layer: 'AI・外部API', items: ['Claude API / claude-sonnet-4-6（記事生成・リライト）', 'Google Search Console API v1（SEO分析）', 'googleapis（Node.js クライアント）'] },
-          { layer: 'ユーティリティ', items: ['TypeScript（スクリプト実装）', 'sharp（OG画像生成）', '@anthropic-ai/sdk（Anthropic SDK）'] },
+          {
+            layer: 'フロントエンド',
+            items: [
+              'Astro 4.x（静的サイトジェネレーター）',
+              'MDX（記事フォーマット）',
+              'Tailwind CSS（スタイリング）',
+            ],
+          },
+          {
+            layer: 'ホスティング・CI/CD',
+            items: [
+              'GitHub Pages（ホスティング・無料）',
+              'GitHub Actions（自動化パイプライン）',
+              'GitHub（ソースコード・記事管理）',
+            ],
+          },
+          {
+            layer: 'AI自動化（APIキー不要）',
+            items: [
+              'Playwright 1.44+（Chromiumブラウザ自動化）',
+              'Claude.ai Web（Claude Proサブスクリプション）',
+              'セッションCookieによる認証（GitHub Secrets管理）',
+            ],
+          },
+          {
+            layer: 'SEO分析・ユーティリティ',
+            items: [
+              'Google Search Console API v1（SEO分析）',
+              'googleapis（Node.js クライアント）',
+              'TypeScript + tsx（スクリプト実装）',
+              'sharp（OG画像生成・無料）',
+            ],
+          },
         ].map(({ layer, items }) => (
           <div class="bg-white rounded-xl border border-gray-200 p-5">
             <h3 class="font-bold text-gray-900 mb-3 text-sm">{layer}</h3>
@@ -269,6 +313,21 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
     <!-- 7. コスト想定 -->
     <section id="section-7">
       <h2 class="text-2xl font-bold text-gray-900 border-l-4 border-blue-500 pl-4 mb-6">7. コスト想定</h2>
+
+      <!-- 比較バナー -->
+      <div class="grid md:grid-cols-2 gap-4 mb-6">
+        <div class="bg-red-50 border border-red-200 rounded-xl p-5">
+          <p class="text-xs font-bold text-red-500 uppercase tracking-wider mb-2">旧構成（Claude API）</p>
+          <p class="text-3xl font-bold text-red-600 mb-1">¥3,000〜¥20,000<span class="text-base font-normal text-red-400">/月</span></p>
+          <p class="text-xs text-red-500">従量課金・記事数に比例してコスト増加</p>
+        </div>
+        <div class="bg-green-50 border border-green-200 rounded-xl p-5">
+          <p class="text-xs font-bold text-green-600 uppercase tracking-wider mb-2">新構成（Playwright + Claude Pro）</p>
+          <p class="text-3xl font-bold text-green-600 mb-1">約¥3,000<span class="text-base font-normal text-green-400">/月</span></p>
+          <p class="text-xs text-green-600">月額固定・記事数が増えてもコスト変動なし</p>
+        </div>
+      </div>
+
       <div class="grid md:grid-cols-2 gap-6">
         <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div class="px-6 py-4 bg-gray-50 border-b border-gray-200">
@@ -278,6 +337,7 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
             <tbody class="divide-y divide-gray-100">
               {[
                 ['Astro / GitHub / GitHub Pages', '無料'],
+                ['Playwright（OSS）', '無料'],
                 ['ドメイン（任意）', '約1,000〜2,000円/年'],
                 ['開発・設定費', '別途見積'],
               ].map(([item, cost]) => (
@@ -295,14 +355,14 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
         </div>
         <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div class="px-6 py-4 bg-gray-50 border-b border-gray-200">
-            <h3 class="font-bold text-gray-900">月額運用費（概算）</h3>
+            <h3 class="font-bold text-gray-900">月額運用費（新構成）</h3>
           </div>
           <table class="w-full text-sm">
             <tbody class="divide-y divide-gray-100">
               {[
                 ['GitHub Pages', '無料'],
-                ['Claude API（記事1本/日）', '約3,000〜8,000円'],
-                ['Claude API（リライト込み）', '約8,000〜20,000円'],
+                ['GitHub Actions', '無料（月2,000分まで）'],
+                ['Claude Pro サブスクリプション', '約3,000円/月'],
                 ['ドメイン', '約100〜200円/月'],
               ].map(([item, cost]) => (
                 <tr>
@@ -310,15 +370,17 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
                   <td class="px-6 py-3 text-right font-medium text-gray-900">{cost}</td>
                 </tr>
               ))}
-              <tr class="bg-blue-50">
+              <tr class="bg-green-50">
                 <td class="px-6 py-3 font-bold text-gray-900">月額合計（目安）</td>
-                <td class="px-6 py-3 text-right font-bold text-blue-600">¥3,000〜¥20,000</td>
+                <td class="px-6 py-3 text-right font-bold text-green-600">約¥3,000〜¥3,200</td>
               </tr>
             </tbody>
           </table>
         </div>
       </div>
-      <p class="text-xs text-gray-500 mt-3">※ Claude API費用は生成記事数・文字数・リライト頻度によって変動します。月次上限の設定が可能です。</p>
+      <p class="text-xs text-gray-500 mt-3">
+        ※ Claude Proサブスクリプションの料金は変更される場合があります。GitHub Actionsは月2,000分を超えると従量課金となりますが、通常の運用では超過しません。
+      </p>
     </section>
 
     <!-- 8. 開発フェーズ -->
@@ -335,8 +397,9 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
             items: [
               'Astro + GitHub Pages 環境構築',
               'MDX記事の表示・ルーティング',
-              'Claude API による記事自動生成',
+              'Playwright + Claude.ai による記事自動生成',
               'GitHub Actions による自動投稿・デプロイ',
+              'OG画像自動生成・内部リンク自動追加',
             ],
           },
           {
@@ -348,8 +411,8 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
             items: [
               'Google Search Console API 連携',
               'CTR・順位データの自動分析',
-              'AIによる自動リライト',
-              'リライト結果の自動公開',
+              'リライト候補の自動抽出・JSONファイル出力',
+              'Playwright + Claude.ai による自動リライト（実装中）',
             ],
           },
           {
@@ -359,10 +422,10 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
             color: 'green',
             status: '計画中',
             items: [
-              '内部リンク自動最適化',
-              'OG画像自動生成',
               'sitemap.xml 自動生成',
               'パフォーマンスモニタリング強化',
+              'キーワード候補の自動提案',
+              'Core Web Vitals 最適化',
             ],
           },
           {
@@ -415,8 +478,9 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
             {[
               'GitHub Pages はサーバーサイド処理不可（静的サイトのみ）',
               'Google Search Console APIはサイト認証後（Googleサーチコンソールへの登録）が必要',
-              'Claude APIの利用には Anthropic のAPIキー取得が必要',
+              'Claude.aiのセッションCookieは定期的に期限切れとなり、再取得が必要（目安：数週間〜数ヶ月）',
               '生成記事の品質はキーワードの精度・プロンプト設計に依存する',
+              'GitHub Actions の実行時間は月2,000分まで無料（通常の運用では超過しない）',
             ].map((item) => (
               <li class="flex gap-2">
                 <span class="text-red-400 shrink-0">!</span>
@@ -430,8 +494,9 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
           <ul class="space-y-3 text-sm text-gray-700">
             {[
               'GitHubアカウントが存在すること',
+              'Claude Proサブスクリプションを契約済みであること（APIキー不要）',
               'Google Search Console にサイトが登録済みであること（Phase 2以降）',
-              'Anthropic アカウントとAPIキーを取得済みであること',
+              'Claude.aiのセッションCookieをGitHub Secretsに登録済みであること',
               'キーワードリスト（data/keywords/keywords.json）を定期的に更新すること',
             ].map((item) => (
               <li class="flex gap-2">
