@@ -245,20 +245,21 @@ meta_description: （ここにmeta descriptionを記述）`;
 }
 
 function parseArticleOutput(raw: string): { title: string; body: string; description: string } {
-  // タグ内の本文を取得
   const inner = raw.replace(/\[\/?\s*ARTICLE_DRAFT\s*\]/gi, '').trim();
 
-  // タイトル (最初の # 行)
-  const titleMatch = inner.match(/^#\s+(.+)/m);
-  const title = titleMatch ? titleMatch[1].trim() : 'タイトル未取得';
+  // タイトル: 最初に # 行を探し、なければ最初の非空行をフォールバック
+  const mdHeading = inner.match(/^#\s+(.+)/m);
+  const firstLine = inner.match(/^([^\n]{4,})/m);
+  const title = mdHeading
+    ? mdHeading[1].trim()
+    : (firstLine ? firstLine[1].replace(/^#+\s*/, '').trim() : 'タイトル未取得');
 
-  // meta_description
   const descMatch = raw.match(/meta_description:\s*(.+)/i);
   const description = descMatch ? descMatch[1].trim() : '';
 
-  // 本文 (タイトル行とmeta行を除く)
   const body = inner
     .replace(/^#\s+.+\n?/m, '')
+    .replace(new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\n?`, 'm'), '')
     .replace(/meta_description:.+$/im, '')
     .trim();
 
@@ -341,7 +342,13 @@ async function main() {
 
     // MDX保存
     await fs.mkdir(BLOG_DIR, { recursive: true });
-    const slug = target.keyword.replace(/\s+/g, '-').toLowerCase().replace(/[^\w-]/g, '');
+    const baseSlug = target.keyword
+      .replace(/\s+/g, '-')
+      .toLowerCase()
+      .replace(/[^\w-]/g, '')
+      .replace(/-+$/g, '');
+    const today = new Date().toISOString().split('T')[0];
+    const slug = baseSlug.length >= 3 ? baseSlug : `post-${today}`;
     const mdxPath = path.join(BLOG_DIR, `${slug}.mdx`);
     await fs.writeFile(mdxPath, buildMdx(target, title, body, description), 'utf-8');
     console.log(`✓ MDX保存: src/content/blog/${slug}.mdx`);
