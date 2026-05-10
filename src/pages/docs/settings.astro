@@ -1,0 +1,295 @@
+---
+const base = import.meta.env.BASE_URL;
+const REPO = 'fkdkazu-commits/ai-seo-blog';
+const KW_PATH = 'data/keywords/keywords.json';
+const WF_PATH = '.github/workflows/daily-generate.yml';
+---
+
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>設定 | AI SEO自動運用ブログシステム</title>
+    <meta name="robots" content="noindex" />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>body { font-family: 'Noto Sans JP', sans-serif; }</style>
+  </head>
+  <body class="bg-gray-50 min-h-screen">
+    <div class="max-w-4xl mx-auto px-6 py-12">
+
+      <!-- Header -->
+      <div class="mb-10">
+        <a href={`${base}docs/`} class="text-sm text-blue-600 hover:underline mb-4 inline-block">← ドキュメント一覧</a>
+        <h1 class="text-3xl font-bold text-gray-900">システム設定</h1>
+        <p class="text-gray-500 mt-2 text-sm">実行スケジュールとキーワードをここから変更できます</p>
+      </div>
+
+      <!-- GitHub Token -->
+      <div class="bg-white rounded-2xl border border-gray-200 p-6 mb-6">
+        <h2 class="text-base font-bold text-gray-900 mb-1">GitHub 接続</h2>
+        <p class="text-xs text-gray-500 mb-4">Personal Access Token（PAT）を入力してください。<code class="bg-gray-100 px-1 rounded">repo</code> + <code class="bg-gray-100 px-1 rounded">workflow</code> スコープが必要です。入力値はページを閉じると消えます。</p>
+        <div class="flex gap-3">
+          <input id="pat" type="password" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+            class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
+          <button onclick="connect()" class="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">接続</button>
+        </div>
+        <p id="conn-status" class="text-xs mt-2 text-gray-400"></p>
+      </div>
+
+      <!-- Schedule -->
+      <div class="bg-white rounded-2xl border border-gray-200 p-6 mb-6" id="section-schedule" style="display:none">
+        <h2 class="text-base font-bold text-gray-900 mb-1">実行スケジュール</h2>
+        <p class="text-xs text-gray-500 mb-4">記事自動生成を毎日何時（JST）に実行するかを設定します</p>
+        <div class="flex items-center gap-4">
+          <label class="text-sm text-gray-700">毎日</label>
+          <select id="hour-jst" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400">
+            {Array.from({length: 24}, (_, i) => <option value={i}>{String(i).padStart(2,'0')}:00</option>)}
+          </select>
+          <label class="text-sm text-gray-700">JST</label>
+          <button onclick="saveSchedule()" class="ml-auto bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">保存</button>
+        </div>
+        <p id="schedule-status" class="text-xs mt-2 text-gray-400"></p>
+      </div>
+
+      <!-- Keywords -->
+      <div class="bg-white rounded-2xl border border-gray-200 p-6 mb-6" id="section-keywords" style="display:none">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="text-base font-bold text-gray-900">キーワード設定</h2>
+            <p class="text-xs text-gray-500 mt-1">記事生成の対象キーワード一覧。「未生成」のものから順に処理されます</p>
+          </div>
+          <button onclick="loadSettings()" class="text-xs text-blue-600 hover:underline">更新</button>
+        </div>
+
+        <div id="kw-table" class="mb-6"></div>
+
+        <!-- Add keyword -->
+        <div class="border-t pt-5">
+          <h3 class="text-sm font-bold text-gray-800 mb-3">キーワードを追加</h3>
+          <div class="grid grid-cols-2 gap-3 mb-3">
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">キーワード <span class="text-red-500">*</span></label>
+              <input id="new-kw" type="text" placeholder="例: SEO対策 初心者"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
+            </div>
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">タグ（カンマ区切り）</label>
+              <input id="new-tags" type="text" placeholder="例: SEO,初心者"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
+            </div>
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">検索意図</label>
+              <input id="new-intent" type="text" placeholder="例: SEO対策の基本を知りたい人"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
+            </div>
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">ターゲット読者</label>
+              <input id="new-target" type="text" placeholder="例: ブログ初心者"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
+            </div>
+          </div>
+          <button onclick="addKeyword()" class="bg-green-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-green-700">追加</button>
+          <p id="kw-status" class="text-xs mt-2 text-gray-400"></p>
+        </div>
+      </div>
+
+      <!-- Trigger -->
+      <div class="bg-white rounded-2xl border border-gray-200 p-6" id="section-trigger" style="display:none">
+        <h2 class="text-base font-bold text-gray-900 mb-1">手動実行</h2>
+        <p class="text-xs text-gray-500 mb-4">スケジュールを待たずに今すぐ記事生成を実行します</p>
+        <button onclick="triggerWorkflow()" class="bg-orange-500 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-orange-600">今すぐ実行</button>
+        <p id="trigger-status" class="text-xs mt-2 text-gray-400"></p>
+      </div>
+
+    </div>
+
+    <script define:vars={{ REPO, KW_PATH, WF_PATH }}>
+      const API = 'https://api.github.com';
+      let token = '';
+      let kwSha = '';
+      let wfSha = '';
+      let keywords = [];
+
+      function pat() { return document.getElementById('pat').value.trim(); }
+      function status(id, msg, color = 'gray') {
+        const el = document.getElementById(id);
+        el.textContent = msg;
+        el.className = `text-xs mt-2 text-${color}-600`;
+      }
+
+      async function githubGet(path) {
+        const res = await fetch(`${API}/repos/${REPO}/contents/${path}`, {
+          headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' }
+        });
+        if (!res.ok) throw new Error(`GET ${path}: ${res.status}`);
+        return res.json();
+      }
+
+      async function githubPut(path, sha, content, message) {
+        const res = await fetch(`${API}/repos/${REPO}/contents/${path}`, {
+          method: 'PUT',
+          headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message, sha, content: btoa(unescape(encodeURIComponent(content))) })
+        });
+        if (!res.ok) { const e = await res.json(); throw new Error(e.message || res.status); }
+        return res.json();
+      }
+
+      async function connect() {
+        token = pat();
+        if (!token) { status('conn-status', 'トークンを入力してください', 'red'); return; }
+        sessionStorage.setItem('gh_pat', token);
+        status('conn-status', '接続中...', 'gray');
+        try {
+          const me = await fetch(`${API}/user`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json());
+          if (!me.login) throw new Error('認証失敗');
+          status('conn-status', `✓ ${me.login} として接続しました`, 'green');
+          await loadSettings();
+          ['section-schedule','section-keywords','section-trigger'].forEach(id => {
+            document.getElementById(id).style.display = '';
+          });
+        } catch(e) {
+          status('conn-status', `エラー: ${e.message}`, 'red');
+        }
+      }
+
+      async function loadSettings() {
+        try {
+          // Keywords
+          const kwFile = await githubGet(KW_PATH);
+          kwSha = kwFile.sha;
+          keywords = JSON.parse(atob(kwFile.content.replace(/\n/g,'')));
+          renderKeywords();
+
+          // Schedule
+          const wfFile = await githubGet(WF_PATH);
+          wfSha = wfFile.sha;
+          const wfText = atob(wfFile.content.replace(/\n/g,''));
+          const cronMatch = wfText.match(/cron:\s*'(\d+)\s+(\d+)\s+/);
+          if (cronMatch) {
+            const utcHour = parseInt(cronMatch[2]);
+            const jstHour = (utcHour + 9) % 24;
+            document.getElementById('hour-jst').value = jstHour;
+          }
+        } catch(e) {
+          console.error(e);
+        }
+      }
+
+      function renderKeywords() {
+        const el = document.getElementById('kw-table');
+        if (!keywords.length) { el.innerHTML = '<p class="text-sm text-gray-400">キーワードがありません</p>'; return; }
+        el.innerHTML = `
+          <table class="w-full text-sm">
+            <thead><tr class="text-left text-xs text-gray-500 border-b">
+              <th class="pb-2 w-8">#</th>
+              <th class="pb-2">キーワード</th>
+              <th class="pb-2">タグ</th>
+              <th class="pb-2 w-24">状態</th>
+              <th class="pb-2 w-32"></th>
+            </tr></thead>
+            <tbody>${keywords.map((k,i) => `
+              <tr class="border-b border-gray-50">
+                <td class="py-3 text-gray-400">${i+1}</td>
+                <td class="py-3 font-medium">${k.keyword}</td>
+                <td class="py-3 text-gray-500">${(k.tags||[]).join(', ')}</td>
+                <td class="py-3">
+                  ${k.generated
+                    ? '<span class="text-green-600 text-xs font-medium">✓ 生成済</span>'
+                    : '<span class="text-orange-500 text-xs font-medium">○ 未生成</span>'}
+                </td>
+                <td class="py-3 flex gap-2">
+                  ${k.generated
+                    ? `<button onclick="resetKw(${i})" class="text-xs text-blue-500 hover:underline">再生成</button>`
+                    : ''}
+                  <button onclick="deleteKw(${i})" class="text-xs text-red-400 hover:underline ml-1">削除</button>
+                </td>
+              </tr>`).join('')}
+            </tbody>
+          </table>`;
+      }
+
+      async function saveKeywords(msg) {
+        status('kw-status', '保存中...', 'gray');
+        try {
+          const f = await githubGet(KW_PATH);
+          kwSha = f.sha;
+          await githubPut(KW_PATH, kwSha, JSON.stringify(keywords, null, 2), msg);
+          status('kw-status', '✓ 保存しました', 'green');
+          const f2 = await githubGet(KW_PATH);
+          kwSha = f2.sha;
+        } catch(e) { status('kw-status', `エラー: ${e.message}`, 'red'); }
+      }
+
+      async function addKeyword() {
+        const kw = document.getElementById('new-kw').value.trim();
+        if (!kw) { status('kw-status', 'キーワードを入力してください', 'red'); return; }
+        const tags = document.getElementById('new-tags').value.split(',').map(t => t.trim()).filter(Boolean);
+        const intent = document.getElementById('new-intent').value.trim() || `${kw}について調べている人`;
+        const target = document.getElementById('new-target').value.trim() || '一般ユーザー';
+        keywords.push({ keyword: kw, intent, target, tags, generated: false });
+        renderKeywords();
+        await saveKeywords(`feat: キーワード追加「${kw}」`);
+        ['new-kw','new-tags','new-intent','new-target'].forEach(id => document.getElementById(id).value = '');
+      }
+
+      async function deleteKw(i) {
+        if (!confirm(`「${keywords[i].keyword}」を削除しますか？`)) return;
+        keywords.splice(i, 1);
+        renderKeywords();
+        await saveKeywords('chore: キーワード削除');
+      }
+
+      async function resetKw(i) {
+        if (!confirm(`「${keywords[i].keyword}」を未生成に戻しますか？次回実行時に再生成されます。`)) return;
+        keywords[i].generated = false;
+        renderKeywords();
+        await saveKeywords(`chore: キーワード「${keywords[i].keyword}」を再生成キューに戻す`);
+      }
+
+      async function saveSchedule() {
+        const jstHour = parseInt(document.getElementById('hour-jst').value);
+        const utcHour = (jstHour - 9 + 24) % 24;
+        status('schedule-status', '保存中...', 'gray');
+        try {
+          const f = await githubGet(WF_PATH);
+          wfSha = f.sha;
+          let wfText = atob(f.content.replace(/\n/g,''));
+          wfText = wfText.replace(/cron:\s*'[^']*'/, `cron: '0 ${utcHour} * * *'`);
+          const comment = wfText.match(/cron:.*\n.*#.*/);
+          wfText = wfText.replace(/(cron:\s*'[^']*')(\s*#[^\n]*)?/, `$1  # 毎日 AM ${String(jstHour).padStart(2,'0')}:00 JST (UTC ${String(utcHour).padStart(2,'0')}:00)`);
+          await githubPut(WF_PATH, wfSha, wfText, `chore: 実行スケジュールを毎日${String(jstHour).padStart(2,'0')}:00 JSTに変更`);
+          status('schedule-status', `✓ 毎日 ${String(jstHour).padStart(2,'0')}:00 JST に設定しました`, 'green');
+        } catch(e) { status('schedule-status', `エラー: ${e.message}`, 'red'); }
+      }
+
+      async function triggerWorkflow() {
+        status('trigger-status', '実行リクエスト送信中...', 'gray');
+        try {
+          const res = await fetch(`${API}/repos/${REPO}/actions/workflows/daily-generate.yml/dispatches`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ref: 'main' })
+          });
+          if (res.status === 204) {
+            status('trigger-status', '✓ 実行を開始しました。GitHub Actionsで進行状況を確認できます', 'green');
+          } else {
+            const e = await res.json();
+            throw new Error(e.message || res.status);
+          }
+        } catch(e) { status('trigger-status', `エラー: ${e.message}`, 'red'); }
+      }
+
+      // セッションから復元
+      window.addEventListener('load', () => {
+        const saved = sessionStorage.getItem('gh_pat');
+        if (saved) {
+          document.getElementById('pat').value = saved;
+          connect();
+        }
+      });
+    </script>
+  </body>
+</html>
