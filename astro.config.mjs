@@ -4,6 +4,7 @@ import tailwind from '@astrojs/tailwind';
 
 export default defineConfig({
   site: 'https://fkdkazu-commits.github.io',
+  base: '/ai-seo-blog',
   integrations: [
     mdx(),
     tailwind(),
