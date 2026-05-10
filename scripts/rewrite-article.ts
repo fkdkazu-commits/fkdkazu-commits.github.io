@@ -190,7 +190,19 @@ async function main() {
     return;
   }
 
-  const browser: Browser = await chromium.launch({ headless: false });
+  const chromePaths = [
+    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+    process.env.CHROME_PATH,
+  ].filter(Boolean) as string[];
+  const executablePath = chromePaths.find((p) => {
+    try { return require('fs').existsSync(p); } catch { return false; }
+  });
+  const browser: Browser = await chromium.launch({
+    headless: false,
+    executablePath,
+    args: ['--disable-blink-features=AutomationControlled'],
+  });
   try {
     const context = await buildContext(browser);
     const page = await context.newPage();
