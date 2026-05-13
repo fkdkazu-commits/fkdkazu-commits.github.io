@@ -51,25 +51,54 @@ function escapeXml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function wrapText(title: string, maxLen = 20): string[] {
+function wrapText(title: string, maxLen = 22): string[] {
+  // 優先度高: 文の切れ目になる記号 / 優先度低: 軽い区切り
+  const major = new Set(['｜', '。', '？', '！', '、', '】', '）', '：']);
+  const minor = new Set(['・', ' ', '　', '-']);
   const lines: string[] = [];
-  let current = '';
-  for (const char of title) {
-    current += char;
-    if (current.length >= maxLen) { lines.push(current); current = ''; }
+  let remaining = title;
+
+  while (remaining.length > maxLen && lines.length < 2) {
+    const lo = Math.floor(maxLen * 0.35); // 低めに設定し '？' '：' 等も拾う
+    const hi = Math.min(Math.ceil(maxLen * 1.2), remaining.length - 1);
+    let breakAt = -1;
+
+    // 1. major 後: maxLen から lo へ後退スキャン
+    for (let i = maxLen; i >= lo; i--) {
+      if (i > 0 && major.has(remaining[i - 1])) { breakAt = i; break; }
+      if (i < remaining.length && (remaining[i] === '【' || remaining[i] === '（')) { breakAt = i; break; }
+    }
+    // 2. major 後: maxLen+1 から hi へ前進スキャン
+    if (breakAt === -1) {
+      for (let i = maxLen + 1; i <= hi; i++) {
+        if (major.has(remaining[i - 1])) { breakAt = i; break; }
+        if (i < remaining.length && (remaining[i] === '【' || remaining[i] === '（')) { breakAt = i; break; }
+      }
+    }
+    // 3. minor 後: maxLen から lo へ後退スキャン
+    if (breakAt === -1) {
+      for (let i = maxLen; i >= lo; i--) {
+        if (i > 0 && minor.has(remaining[i - 1])) { breakAt = i; break; }
+      }
+    }
+    // 4. 強制改行
+    if (breakAt === -1) breakAt = maxLen;
+
+    lines.push(remaining.slice(0, breakAt));
+    remaining = remaining.slice(breakAt);
   }
-  if (current) lines.push(current);
-  return lines.slice(0, 3);
+  if (remaining) lines.push(remaining);
+  return lines;
 }
 
-// Unsplash写真の上に重ねるオーバーレイ SVG（グラデーション + バッジ + タイトル）
-function buildOverlaySvg(title: string, keyword: string): string {
-  const lines = wrapText(title, 20);
-  const fontSize = lines.length <= 2 ? 56 : 48;
+// Unsplash写真の上に重ねるオーバーレイ SVG（グラデーション + タイトル）
+function buildOverlaySvg(title: string): string {
+  const lines = wrapText(title);
+  const maxLen = Math.max(...lines.map(l => l.length));
+  const fontSize = maxLen <= 18 ? 56 : maxLen <= 22 ? 48 : 42;
   const lineHeight = fontSize + 16;
   const totalTextH = lines.length * lineHeight;
 
-  // テキストブロックを下から130pxの位置に配置
   const textBlockBottom = OG_HEIGHT - 130;
   const textStartY = textBlockBottom - totalTextH + lineHeight;
 
@@ -78,10 +107,6 @@ function buildOverlaySvg(title: string, keyword: string): string {
       `<text x="72" y="${textStartY + i * lineHeight}" font-family="'Noto Sans JP', 'Hiragino Kaku Gothic ProN', sans-serif" font-size="${fontSize}" font-weight="bold" fill="white" filter="url(#shadow)">${escapeXml(line)}</text>`,
     )
     .join('\n  ');
-
-  // キーワードバッジ
-  const kwText = escapeXml(keyword);
-  const kwWidth = Math.min(keyword.length * 18 + 32, 300);
 
   return `<svg width="${OG_WIDTH}" height="${OG_HEIGHT}" xmlns="http://www.w3.org/2000/svg">
   <defs>
@@ -99,10 +124,6 @@ function buildOverlaySvg(title: string, keyword: string): string {
   <!-- サイト名（左上） -->
   <rect x="48" y="44" width="6" height="36" fill="${ACCENT_COLOR}" rx="3"/>
   <text x="64" y="72" font-family="sans-serif" font-size="24" font-weight="600" fill="white">${SITE_NAME}</text>
-
-  <!-- キーワードバッジ（タイトルの上） -->
-  <rect x="68" y="${textStartY - lineHeight - 12}" width="${kwWidth}" height="36" rx="18" fill="${ACCENT_COLOR}" fill-opacity="0.9"/>
-  <text x="${68 + kwWidth / 2}" y="${textStartY - lineHeight + 9}" font-family="sans-serif" font-size="20" font-weight="600" fill="white" text-anchor="middle">${kwText}</text>
 
   <!-- タイトル -->
   ${textElements}
@@ -144,13 +165,14 @@ async function fetchUnsplashPhoto(keyword: string): Promise<Buffer | null> {
   }
 }
 
-// フォールバック: グラデーション背景 + 装飾のSVG OG画像
-function buildFallbackSvg(title: string, keyword: string): string {
-  const lines = wrapText(title, 20);
-  const fontSize = lines.length <= 2 ? 56 : 48;
+// フォールバック: radialGradient オーロラ + グリッド背景
+function buildFallbackSvg(title: string): string {
+  const lines = wrapText(title);
+  const maxLen = Math.max(...lines.map(l => l.length));
+  const fontSize = maxLen <= 18 ? 56 : maxLen <= 22 ? 48 : 42;
   const lineHeight = fontSize + 16;
   const totalTextH = lines.length * lineHeight;
-  const textStartY = OG_HEIGHT / 2 - totalTextH / 2 + 30;
+  const textStartY = OG_HEIGHT / 2 - totalTextH / 2 + Math.round(fontSize * 0.6);
 
   const textElements = lines
     .map((line, i) =>
@@ -158,48 +180,70 @@ function buildFallbackSvg(title: string, keyword: string): string {
     )
     .join('\n  ');
 
-  const kwText = escapeXml(keyword);
-  const kwWidth = Math.min(keyword.length * 18 + 32, 320);
-
   return `<svg width="${OG_WIDTH}" height="${OG_HEIGHT}" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%"   stop-color="#0f172a"/>
-      <stop offset="50%"  stop-color="#1e1b4b"/>
-      <stop offset="100%" stop-color="#0f172a"/>
+    <!-- ベースグラデーション -->
+    <linearGradient id="base" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%"   stop-color="#060918"/>
+      <stop offset="100%" stop-color="#0d0b22"/>
     </linearGradient>
+    <!-- オーロラブロブ (radialGradient = フィルター不要で sharp で確実に描画) -->
+    <radialGradient id="r1" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#1d4ed8" stop-opacity="0.72"/>
+      <stop offset="100%" stop-color="#1d4ed8" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="r2" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#7c3aed" stop-opacity="0.68"/>
+      <stop offset="100%" stop-color="#7c3aed" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="r3" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#0891b2" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#0891b2" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="r4" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#4338ca" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#4338ca" stop-opacity="0"/>
+    </radialGradient>
+    <!-- アクセントライン -->
     <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
       <stop offset="0%"   stop-color="${ACCENT_COLOR}"/>
       <stop offset="100%" stop-color="#8b5cf6"/>
     </linearGradient>
+    <!-- グリッド線 -->
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.045)" stroke-width="0.8"/>
+    </pattern>
+    <!-- 交点ドット -->
+    <pattern id="gdot" width="40" height="40" patternUnits="userSpaceOnUse">
+      <circle cx="0" cy="0" r="1.3" fill="white" opacity="0.13"/>
+    </pattern>
   </defs>
 
-  <!-- 背景 -->
-  <rect width="${OG_WIDTH}" height="${OG_HEIGHT}" fill="url(#bg)"/>
+  <!-- ベース -->
+  <rect width="${OG_WIDTH}" height="${OG_HEIGHT}" fill="url(#base)"/>
 
-  <!-- 装飾: 右上の円 -->
-  <circle cx="${OG_WIDTH - 80}" cy="80" r="200" fill="#3b82f6" fill-opacity="0.06"/>
-  <circle cx="${OG_WIDTH - 60}" cy="60" r="100" fill="#8b5cf6" fill-opacity="0.08"/>
+  <!-- グリッド -->
+  <rect width="${OG_WIDTH}" height="${OG_HEIGHT}" fill="url(#grid)"/>
+  <rect width="${OG_WIDTH}" height="${OG_HEIGHT}" fill="url(#gdot)"/>
 
-  <!-- 装飾: 左下の円 -->
-  <circle cx="80" cy="${OG_HEIGHT - 80}" r="150" fill="${ACCENT_COLOR}" fill-opacity="0.06"/>
+  <!-- オーロラブロブ (各コーナーに配置・中央でうっすら重なる) -->
+  <ellipse cx="150"  cy="200"  rx="540" ry="370" fill="url(#r1)"/>
+  <ellipse cx="1060" cy="450"  rx="500" ry="320" fill="url(#r2)"/>
+  <ellipse cx="980"  cy="90"   rx="400" ry="250" fill="url(#r3)"/>
+  <ellipse cx="110"  cy="520"  rx="300" ry="210" fill="url(#r4)"/>
 
   <!-- 上部アクセントライン -->
-  <rect x="0" y="0" width="${OG_WIDTH}" height="5" fill="url(#accent)"/>
+  <rect x="0" y="0" width="${OG_WIDTH}" height="4" fill="url(#accent)"/>
 
   <!-- サイト名（左上） -->
   <rect x="48" y="36" width="6" height="36" fill="${ACCENT_COLOR}" rx="3"/>
   <text x="64" y="64" font-family="sans-serif" font-size="24" font-weight="600" fill="white">${SITE_NAME}</text>
 
-  <!-- キーワードバッジ -->
-  <rect x="${600 - kwWidth / 2}" y="${textStartY - lineHeight - 16}" width="${kwWidth}" height="38" rx="19" fill="url(#accent)" fill-opacity="0.9"/>
-  <text x="600" y="${textStartY - lineHeight + 12}" font-family="sans-serif" font-size="21" font-weight="600" fill="white" text-anchor="middle">${kwText}</text>
-
   <!-- タイトル -->
   ${textElements}
 
   <!-- 下部アクセントライン -->
-  <rect x="0" y="${OG_HEIGHT - 5}" width="${OG_WIDTH}" height="5" fill="url(#accent)"/>
+  <rect x="0" y="${OG_HEIGHT - 4}" width="${OG_WIDTH}" height="4" fill="url(#accent)"/>
 </svg>`;
 }
 
@@ -213,7 +257,7 @@ async function generateOgImage(slug: string, title: string, keyword: string): Pr
   const photoBuffer = await fetchUnsplashPhoto(keyword);
 
   if (photoBuffer) {
-    const overlay = buildOverlaySvg(title, keyword);
+    const overlay = buildOverlaySvg(title);
     await sharp(photoBuffer)
       .resize(OG_WIDTH, OG_HEIGHT, { fit: 'cover', position: 'center' })
       .composite([{ input: Buffer.from(overlay), top: 0, left: 0 }])
@@ -221,7 +265,7 @@ async function generateOgImage(slug: string, title: string, keyword: string): Pr
       .toFile(outPath);
     console.log(`OG画像生成 (Unsplash): ${slug}.png`);
   } else {
-    const svg = buildFallbackSvg(title, keyword);
+    const svg = buildFallbackSvg(title);
     await sharp(Buffer.from(svg)).png().toFile(outPath);
     console.log(`OG画像生成 (SVG fallback): ${slug}.png`);
   }
