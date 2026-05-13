@@ -8,6 +8,7 @@ on:
 jobs:
   generate:
     runs-on: self-hosted
+    timeout-minutes: 150
     permissions:
       contents: write
 
@@ -26,11 +27,12 @@ jobs:
       - name: Install Playwright Chromium
         run: npx playwright install chromium
 
-      - name: Generate article via Claude.ai (Playwright)
+      - name: Generate article via Claude.ai (5-step pipeline)
         env:
           # GitHub Secrets に保存したClaude.aiのセッションCookie (JSON配列)
           CLAUDE_COOKIES: ${{ secrets.CLAUDE_COOKIES }}
         run: npm run generate
+        # 5ステップ×最大10分 + バッファ = 最大60分
 
       - name: Sync OG image cache with git
         run: git clean -fd -- public/og/
@@ -40,10 +42,11 @@ jobs:
           UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
         run: npm run og
 
-      - name: Add internal links
+      - name: Add internal links to existing articles
         env:
           CLAUDE_COOKIES: ${{ secrets.CLAUDE_COOKIES }}
         run: npm run link
+        # 新記事はstep5で処理済み。既存記事の内部リンク更新を担当
 
       - name: Commit and push
         run: |

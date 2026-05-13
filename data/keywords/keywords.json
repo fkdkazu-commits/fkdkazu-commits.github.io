@@ -3,20 +3,21 @@
     "keyword": "副業 AI",
     "intent": "AIを活用して副業で稼ぎたい",
     "target": "AI初心者で副業で稼ぎたい人",
-    "tags": [
-      "副業",
-      "AI"
-    ],
+    "tags": ["副業", "AI"],
     "generated": true
   },
   {
     "keyword": "副業　月5万",
     "intent": "副業で月5万稼ぐための方法が知りたい",
     "target": "副業初心者",
-    "tags": [
-      "副業",
-      "月5万"
-    ],
+    "tags": ["副業", "月5万"],
+    "generated": true
+  },
+  {
+    "keyword": "Claude Code 使い方",
+    "intent": "Claude Codeの具体的な使い方・コマンドや活用方法を知りたい",
+    "target": "エンジニア・プログラマー・AI開発ツールに興味がある人",
+    "tags": ["Claude Code", "AI", "開発ツール", "プログラミング"],
     "generated": true
   }
 ]
