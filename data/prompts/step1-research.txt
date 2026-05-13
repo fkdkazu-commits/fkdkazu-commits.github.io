@@ -1,0 +1,50 @@
+ウェブ検索を使って、以下のキーワードについてSEOリサーチを行い、[SEO_RESEARCH_REPORT]〜[/SEO_RESEARCH_REPORT]形式で出力してください。
+
+MAIN_KEYWORD: {{keyword}}
+SUB_KEYWORDS: {{tags}}
+TARGET_READER: {{target}}
+
+【リサーチ方針】
+- 一次情報を優先（公的機関 .go.jp・業界団体・専門家の発信）
+- 競合上位5サイトの見出し構成・カバー範囲・差別化ポイントを分析
+- 実務で使えるノウハウ・具体的手順・ツール情報を収集
+- note・はてなブログ・Yahoo知恵袋等から実体験に基づく情報を収集
+- URLはトップページ禁止（記事URL必須）・X（旧Twitter）URL収集禁止
+
+【出力フォーマット】
+[SEO_RESEARCH_REPORT] タグ（開始）と対応する閉じタグ [/SEO_RESEARCH_REPORT] で全体を囲み、以下のセクションを順番に出力してください:
+
+## 1. META
+- MAIN_KEYWORD:
+- SUB_KEYWORDS:
+- TARGET_READER:
+- リサーチ実行日:
+
+## 2. ARTICLE_TYPE
+【記事タイプ】：専門記事（YMYL分野：{該当分野}） または 一般記事
+※YMYL判定：税務・会計・確定申告 / 法律・法務・契約 / 医療・健康・病気 / 金融・投資・保険 / 不動産・相続
+
+## 3. SEARCH_INTENT
+- タイプ: Know / Do / Compare / Solve
+- 具体的な検索意図:
+
+## 4. CORE_FACTS
+（定義・数値・法的根拠・制度情報など記事の核となる事実）
+
+## 5. USER_PAIN_POINTS
+（ターゲット読者が抱える悩み・疑問・不安 5件以上）
+
+## 6. PRACTICAL_KNOWHOW_CANDIDATES
+（実務で使えるノウハウ候補 10件以上）
+
+## 7. PRIMARY_SOURCES
+（公的機関・専門メディアのURL。各URLに情報の概要を付記）
+
+## 8. USER_VOICE_URLs
+（体験談・事例を含むURL。必ず異なるドメインから2件以上。各URLに内容の要点を付記）
+
+## 9. COMPETITOR_ANALYSIS
+（競合上位5サイトのURL・タイトル・主要H2見出し一覧）
+
+## 10. SUGGEST_KEYWORDS
+（サジェスト・関連キーワード・共起語 10〜20件）
