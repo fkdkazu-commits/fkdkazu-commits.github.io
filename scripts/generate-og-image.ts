@@ -1,12 +1,30 @@
 /**
  * OG画像自動生成スクリプト
  * Unsplash APIでキーワードに合った写真を取得し、タイトルオーバーレイを重ねる
- * UNSPLASH_ACCESS_KEY が未設定の場合は SVG フォールバック
+ * UNSPLASH_ACCESS_KEY が未設定の場合は C:\Users\fkdka\.secrets\.env を参照
+ * どちらもなければ SVG フォールバック
  */
 import sharp from 'sharp';
 import fs from 'fs/promises';
+import fsSync from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+
+// ローカル実行用: シークレットフォルダの .env を自動読み込み
+function loadLocalSecrets(): void {
+  if (process.env.UNSPLASH_ACCESS_KEY) return; // 既にセット済み（GitHub Actions等）
+  const secretsEnv = 'C:\\Users\\fkdka\\.secrets\\.env';
+  try {
+    const content = fsSync.readFileSync(secretsEnv, 'utf-8');
+    for (const line of content.split(/\r?\n/)) {
+      const m = line.match(/^([A-Z_]+)\s*=\s*(.+)$/);
+      if (m) process.env[m[1]] = m[2].trim().replace(/^['"]|['"]$/g, '');
+    }
+  } catch {
+    // ファイルが存在しない場合は無視（GitHub Actions では env 経由で渡す）
+  }
+}
+loadLocalSecrets();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -16,6 +34,7 @@ const OG_DIR = path.join(ROOT, 'public', 'og');
 const OG_WIDTH = 1200;
 const OG_HEIGHT = 630;
 const ACCENT_COLOR = '#3b82f6';
+const SITE_NAME = 'AI メディア';
 
 function extractFrontmatter(content: string): Record<string, string> {
   const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
@@ -28,7 +47,11 @@ function extractFrontmatter(content: string): Record<string, string> {
   return result;
 }
 
-function wrapText(title: string, maxLen = 22): string[] {
+function escapeXml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function wrapText(title: string, maxLen = 20): string[] {
   const lines: string[] = [];
   let current = '';
   for (const char of title) {
@@ -39,30 +62,56 @@ function wrapText(title: string, maxLen = 22): string[] {
   return lines.slice(0, 3);
 }
 
-// Unsplash写真の上に重ねるグラデーション + タイトルテキスト SVG
-function buildOverlaySvg(title: string): string {
-  const lines = wrapText(title);
-  const lineHeight = 72;
+// Unsplash写真の上に重ねるオーバーレイ SVG（グラデーション + バッジ + タイトル）
+function buildOverlaySvg(title: string, keyword: string): string {
+  const lines = wrapText(title, 20);
+  const fontSize = lines.length <= 2 ? 56 : 48;
+  const lineHeight = fontSize + 16;
   const totalTextH = lines.length * lineHeight;
-  const textStartY = OG_HEIGHT - 120 - totalTextH + lineHeight;
+
+  // テキストブロックを下から130pxの位置に配置
+  const textBlockBottom = OG_HEIGHT - 130;
+  const textStartY = textBlockBottom - totalTextH + lineHeight;
 
   const textElements = lines
-    .map((line, i) => `<text x="80" y="${textStartY + i * lineHeight}" font-family="sans-serif" font-size="54" font-weight="bold" fill="white">${line}</text>`)
-    .join('\n');
+    .map((line, i) =>
+      `<text x="72" y="${textStartY + i * lineHeight}" font-family="'Noto Sans JP', 'Hiragino Kaku Gothic ProN', sans-serif" font-size="${fontSize}" font-weight="bold" fill="white" filter="url(#shadow)">${escapeXml(line)}</text>`,
+    )
+    .join('\n  ');
+
+  // キーワードバッジ
+  const kwText = escapeXml(keyword);
+  const kwWidth = Math.min(keyword.length * 18 + 32, 300);
 
   return `<svg width="${OG_WIDTH}" height="${OG_HEIGHT}" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="black" stop-opacity="0"/>
-      <stop offset="50%" stop-color="black" stop-opacity="0.3"/>
-      <stop offset="100%" stop-color="black" stop-opacity="0.85"/>
+      <stop offset="0%"   stop-color="#000000" stop-opacity="0"/>
+      <stop offset="40%"  stop-color="#000000" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.88"/>
     </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="130%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="black" flood-opacity="0.6"/>
+    </filter>
   </defs>
   <rect width="${OG_WIDTH}" height="${OG_HEIGHT}" fill="url(#grad)"/>
-  <rect x="60" y="${OG_HEIGHT - 110}" width="8" height="44" fill="${ACCENT_COLOR}" rx="4"/>
-  <text x="82" y="${OG_HEIGHT - 74}" font-family="sans-serif" font-size="22" fill="${ACCENT_COLOR}">AI メディア</text>
+
+  <!-- サイト名（左上） -->
+  <rect x="48" y="44" width="6" height="36" fill="${ACCENT_COLOR}" rx="3"/>
+  <text x="64" y="72" font-family="sans-serif" font-size="24" font-weight="600" fill="white">${SITE_NAME}</text>
+
+  <!-- キーワードバッジ（タイトルの上） -->
+  <rect x="68" y="${textStartY - lineHeight - 12}" width="${kwWidth}" height="36" rx="18" fill="${ACCENT_COLOR}" fill-opacity="0.9"/>
+  <text x="${68 + kwWidth / 2}" y="${textStartY - lineHeight + 9}" font-family="sans-serif" font-size="20" font-weight="600" fill="white" text-anchor="middle">${kwText}</text>
+
+  <!-- タイトル -->
   ${textElements}
-  <text x="${OG_WIDTH - 20}" y="${OG_HEIGHT - 20}" font-family="sans-serif" font-size="18" fill="#94a3b8" text-anchor="end">Photo: Unsplash</text>
+
+  <!-- 下部アクセントライン -->
+  <rect x="0" y="${OG_HEIGHT - 6}" width="${OG_WIDTH}" height="6" fill="${ACCENT_COLOR}"/>
+
+  <!-- Photo credit -->
+  <text x="${OG_WIDTH - 16}" y="${OG_HEIGHT - 16}" font-family="sans-serif" font-size="16" fill="rgba(255,255,255,0.5)" text-anchor="end">Photo: Unsplash</text>
 </svg>`;
 }
 
@@ -95,20 +144,62 @@ async function fetchUnsplashPhoto(keyword: string): Promise<Buffer | null> {
   }
 }
 
-// フォールバック: SVGのみのOG画像
+// フォールバック: グラデーション背景 + 装飾のSVG OG画像
 function buildFallbackSvg(title: string, keyword: string): string {
-  const lines = wrapText(title);
-  const lineHeight = 80;
-  const startY = 240 - ((lines.length - 1) * lineHeight) / 2;
+  const lines = wrapText(title, 20);
+  const fontSize = lines.length <= 2 ? 56 : 48;
+  const lineHeight = fontSize + 16;
+  const totalTextH = lines.length * lineHeight;
+  const textStartY = OG_HEIGHT / 2 - totalTextH / 2 + 30;
+
   const textElements = lines
-    .map((line, i) => `<text x="600" y="${startY + i * lineHeight}" font-family="sans-serif" font-size="52" font-weight="bold" fill="white" text-anchor="middle">${line}</text>`)
-    .join('\n');
+    .map((line, i) =>
+      `<text x="600" y="${textStartY + i * lineHeight}" font-family="'Noto Sans JP', 'Hiragino Kaku Gothic ProN', sans-serif" font-size="${fontSize}" font-weight="bold" fill="white" text-anchor="middle">${escapeXml(line)}</text>`,
+    )
+    .join('\n  ');
+
+  const kwText = escapeXml(keyword);
+  const kwWidth = Math.min(keyword.length * 18 + 32, 320);
+
   return `<svg width="${OG_WIDTH}" height="${OG_HEIGHT}" xmlns="http://www.w3.org/2000/svg">
-  <rect width="${OG_WIDTH}" height="${OG_HEIGHT}" fill="rgb(15,23,42)"/>
-  <rect x="60" y="40" width="8" height="40" fill="${ACCENT_COLOR}" rx="4"/>
-  <text x="82" y="72" font-family="sans-serif" font-size="24" fill="${ACCENT_COLOR}">AI メディア</text>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%"   stop-color="#0f172a"/>
+      <stop offset="50%"  stop-color="#1e1b4b"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%"   stop-color="${ACCENT_COLOR}"/>
+      <stop offset="100%" stop-color="#8b5cf6"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 背景 -->
+  <rect width="${OG_WIDTH}" height="${OG_HEIGHT}" fill="url(#bg)"/>
+
+  <!-- 装飾: 右上の円 -->
+  <circle cx="${OG_WIDTH - 80}" cy="80" r="200" fill="#3b82f6" fill-opacity="0.06"/>
+  <circle cx="${OG_WIDTH - 60}" cy="60" r="100" fill="#8b5cf6" fill-opacity="0.08"/>
+
+  <!-- 装飾: 左下の円 -->
+  <circle cx="80" cy="${OG_HEIGHT - 80}" r="150" fill="${ACCENT_COLOR}" fill-opacity="0.06"/>
+
+  <!-- 上部アクセントライン -->
+  <rect x="0" y="0" width="${OG_WIDTH}" height="5" fill="url(#accent)"/>
+
+  <!-- サイト名（左上） -->
+  <rect x="48" y="36" width="6" height="36" fill="${ACCENT_COLOR}" rx="3"/>
+  <text x="64" y="64" font-family="sans-serif" font-size="24" font-weight="600" fill="white">${SITE_NAME}</text>
+
+  <!-- キーワードバッジ -->
+  <rect x="${600 - kwWidth / 2}" y="${textStartY - lineHeight - 16}" width="${kwWidth}" height="38" rx="19" fill="url(#accent)" fill-opacity="0.9"/>
+  <text x="600" y="${textStartY - lineHeight + 12}" font-family="sans-serif" font-size="21" font-weight="600" fill="white" text-anchor="middle">${kwText}</text>
+
+  <!-- タイトル -->
   ${textElements}
-  <text x="600" y="${startY + lines.length * lineHeight + 40}" font-family="sans-serif" font-size="28" fill="#94a3b8" text-anchor="middle">${keyword}</text>
+
+  <!-- 下部アクセントライン -->
+  <rect x="0" y="${OG_HEIGHT - 5}" width="${OG_WIDTH}" height="5" fill="url(#accent)"/>
 </svg>`;
 }
 
@@ -122,7 +213,7 @@ async function generateOgImage(slug: string, title: string, keyword: string): Pr
   const photoBuffer = await fetchUnsplashPhoto(keyword);
 
   if (photoBuffer) {
-    const overlay = buildOverlaySvg(title);
+    const overlay = buildOverlaySvg(title, keyword);
     await sharp(photoBuffer)
       .resize(OG_WIDTH, OG_HEIGHT, { fit: 'cover', position: 'center' })
       .composite([{ input: Buffer.from(overlay), top: 0, left: 0 }])
