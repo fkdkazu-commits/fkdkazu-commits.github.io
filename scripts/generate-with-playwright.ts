@@ -110,14 +110,19 @@ async function buildContext(): Promise<BrowserContext> {
 }
 
 async function waitForInputBox(page: Page, timeoutMs = 300_000): Promise<void> {
-  // 最大5分待機（初回ログイン時にユーザーが手動でログインする時間を確保）
-  for (const selector of INPUT_SELECTORS) {
-    try {
-      await page.waitForSelector(selector, { timeout: timeoutMs });
-      return;
-    } catch {
-      continue;
+  // URLが claude.ai のチャット画面になるまでポーリングで待機
+  //（ログインページ・OAuth画面ではなく、実際の入力ボックスが現れる画面を待つ）
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const url = page.url();
+    // claude.ai ドメインかつ /login や /auth ではない → ログイン済みの可能性
+    if (url.startsWith('https://claude.ai') && !/\/(login|auth|signup|pricing)/.test(url)) {
+      for (const selector of INPUT_SELECTORS) {
+        const el = await page.$(selector).catch(() => null);
+        if (el) return;
+      }
     }
+    await page.waitForTimeout(2000);
   }
   const url = page.url();
   const title = await page.title().catch(() => '取得失敗');
@@ -551,11 +556,12 @@ async function main() {
     const page = context.pages().length > 0 ? context.pages()[0] : await context.newPage();
 
     console.log('Claude.ai に接続中...');
-    await page.goto(CLAUDE_NEW_CHAT, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+    // ログインページへのリダイレクトが発生しても timeout しないよう commit で待機
+    await page.goto(CLAUDE_NEW_CHAT, { waitUntil: 'commit', timeout: 120_000 }).catch(() => {});
 
-    // 初回ログイン時は最大5分待機（ユーザーが手動でログインする時間）
+    // 初回ログイン時は最大10分待機（ログイン→OAuth→コールバック→チャット画面の遷移を含む）
     console.log('ログイン確認中（未ログインの場合はブラウザでログインしてください）...');
-    await waitForInputBox(page, 300_000);
+    await waitForInputBox(page, 600_000);
     console.log('✓ Claude.ai ログイン確認済み');
     await page.waitForLoadState('networkidle').catch(() => {});
     await page.waitForTimeout(2000);

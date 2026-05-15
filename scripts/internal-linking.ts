@@ -186,8 +186,17 @@ async function main() {
   try {
     const pages = context.pages();
     const page: Page = pages.length > 0 ? pages[0] : await context.newPage();
-    await page.goto('https://claude.ai/new', { waitUntil: 'domcontentloaded', timeout: 60_000 });
-    await page.waitForSelector('div[contenteditable="true"]', { timeout: 60_000 });
+    await page.goto('https://claude.ai/new', { waitUntil: 'commit', timeout: 120_000 }).catch(() => {});
+    // URLベースでログイン完了を待機（最大10分）
+    const deadline = Date.now() + 600_000;
+    while (Date.now() < deadline) {
+      const url = page.url();
+      if (url.startsWith('https://claude.ai') && !/\/(login|auth|signup|pricing)/.test(url)) {
+        const el = await page.$('div[contenteditable="true"]').catch(() => null);
+        if (el) break;
+      }
+      await page.waitForTimeout(2000);
+    }
 
     const others = articles.filter((a) => a.slug !== targetSlug);
     const slugs = await findRelatedSlugs(page, target, others);
