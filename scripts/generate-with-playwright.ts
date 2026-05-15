@@ -596,11 +596,21 @@ async function main() {
       console.log(`\n[Step ${i + 1}/5] ${STEP_NAMES[i]}開始...`);
 
       // 送信前スナップショット（既存メッセージとの区別に使用）
-      const bodyText = await page.innerText('body').catch(() => '');
-      const baselineCount = countTaggedBlocks(bodyText, tag);
       const baselineSnapshot = await snapshotAssistantCandidates(page);
 
       await submitPrompt(page, prompts[i]);
+
+      // プロンプト送信後に baseline を取り直す（プロンプト本文にタグが含まれる場合の false positive 対策）
+      await page.waitForTimeout(1000);
+      const baselineCount = await page.evaluate((tagName: string) => {
+        const closeTag = `[/${tagName}]`;
+        const text = document.body?.textContent ?? '';
+        let count = 0, pos = 0;
+        while ((pos = text.indexOf(closeTag, pos)) !== -1) { count++; pos++; }
+        return count;
+      }, tag).catch(() => 0);
+      const bodyText = ''; // innerText は使用しない（取得失敗のため）
+      console.log(`  baseline [/${tag}] count: ${baselineCount}`);
 
       const mins = STEP_TIMEOUTS[i] / 60_000;
       console.log(`  ${STEP_NAMES[i]}中（最大${mins}分待機）...`);
@@ -620,15 +630,21 @@ async function main() {
       // 質問返し検知 → 自動回復プロンプトを1回送信
       if (isConversationalInterrupt(stepOutput, tag)) {
         console.warn(`⚠ 質問返しを検知。回復プロンプトを送信します...`);
-        const recoveryBody = await page.innerText('body').catch(() => '');
-        const recoveryBaselineCount = countTaggedBlocks(recoveryBody, tag);
         const recoverySnapshot = await snapshotAssistantCandidates(page);
         await submitPrompt(page, buildRecoveryPrompt());
+        await page.waitForTimeout(1000);
+        const recoveryBaselineCount = await page.evaluate((tagName: string) => {
+          const closeTag = `[/${tagName}]`;
+          const text = document.body?.textContent ?? '';
+          let count = 0, pos = 0;
+          while ((pos = text.indexOf(closeTag, pos)) !== -1) { count++; pos++; }
+          return count;
+        }, tag).catch(() => 0);
         stepOutput = await waitForNewOutput(
           page,
           recoveryBaselineCount,
           recoverySnapshot,
-          recoveryBody,
+          '',
           buildRecoveryPrompt(),
           tag,
           STEP_TIMEOUTS[i],
