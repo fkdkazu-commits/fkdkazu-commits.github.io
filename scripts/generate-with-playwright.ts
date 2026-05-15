@@ -318,6 +318,7 @@ async function waitForNewOutput(
   page: Page,
   baselineCount: number,
   baselineSnapshot: Set<string>,
+  baselineBodyText: string,
   promptText: string,
   tag: string,
   maxWaitMs = 600_000,
@@ -327,6 +328,7 @@ async function waitForNewOutput(
   let bestTaggedText = '';
   let bestSelectorText = '';
   let stableCount = 0;
+  let prevBestLen = 0;
   let iteration = 0;
   let lastBodyText = '';
 
@@ -376,19 +378,39 @@ async function waitForNewOutput(
 
       if (candidates.length > 0) {
         const current = candidates.reduce((a, b) => (a.length > b.length ? a : b));
-        if (current.length > bestSelectorText.length) bestSelectorText = current;
-
-        if (current === bestTaggedText || current === bestSelectorText) {
+        if (current.length > bestSelectorText.length) {
+          bestSelectorText = current;
+          stableCount = 0;
+        } else if (current.length === bestSelectorText.length && bestSelectorText.length >= minChars) {
           stableCount++;
-          if (stableCount >= 2 && current.length >= minChars) {
+          if (stableCount >= 2) {
             console.log(`✓ 出力確定（セレクター）: ${current.length}文字`);
             return current;
           }
-        } else {
-          bestSelectorText = current;
-          stableCount = 0;
         }
         if (iteration % 10 === 0) console.log(`  待機中 [${tag}]: ${current.length}文字`);
+      }
+
+      // 3. body全体差分監視（セレクター非対応のUI変更に対する最終フォールバック）
+      const bodyGrowth = bodyText.length - baselineBodyText.length;
+      if (bodyGrowth > 300) {
+        // ベースライン末尾100字と重複させて新規テキストを取得
+        const overlapStart = Math.max(0, baselineBodyText.length - 100);
+        const tail = bodyText.slice(overlapStart).trim();
+        if (tail.length > bestSelectorText.length) {
+          if (tail.length === prevBestLen) {
+            stableCount++;
+            if (stableCount >= 2 && tail.length >= minChars) {
+              console.log(`✓ 出力確定（body差分）: ${tail.length}文字 (増加: +${bodyGrowth}文字)`);
+              return tail;
+            }
+          } else {
+            prevBestLen = tail.length;
+            stableCount = 0;
+            if (iteration % 5 === 0) console.log(`  body成長中: +${bodyGrowth}文字`);
+          }
+          bestSelectorText = tail;
+        }
       }
     } catch {
       // ページ遷移等の一時的エラーは無視
@@ -585,6 +607,7 @@ async function main() {
         page,
         baselineCount,
         baselineSnapshot,
+        bodyText,
         prompts[i],
         tag,
         STEP_TIMEOUTS[i],
@@ -595,16 +618,15 @@ async function main() {
       // 質問返し検知 → 自動回復プロンプトを1回送信
       if (isConversationalInterrupt(stepOutput, tag)) {
         console.warn(`⚠ 質問返しを検知。回復プロンプトを送信します...`);
-        const recoveryBaselineCount = countTaggedBlocks(
-          await page.innerText('body').catch(() => ''),
-          tag,
-        );
+        const recoveryBody = await page.innerText('body').catch(() => '');
+        const recoveryBaselineCount = countTaggedBlocks(recoveryBody, tag);
         const recoverySnapshot = await snapshotAssistantCandidates(page);
         await submitPrompt(page, buildRecoveryPrompt());
         stepOutput = await waitForNewOutput(
           page,
           recoveryBaselineCount,
           recoverySnapshot,
+          recoveryBody,
           buildRecoveryPrompt(),
           tag,
           STEP_TIMEOUTS[i],
