@@ -246,11 +246,24 @@ async function extractLastTaggedBlockMarkdown(page: Page, tag: string): Promise<
       }
     }
 
-    const pairCount = Math.min(opens.length, closes.length);
-    if (pairCount === 0) return null;
+    if (opens.length === 0 || closes.length === 0) return null;
 
-    const [openNode, openOffset] = opens[pairCount - 1];
-    const [closeNode, closeOffset] = closes[pairCount - 1];
+    // 最後の closing tag を基準に、その直前の opening tag を探す
+    const [closeNode, closeOffset] = closes[closes.length - 1];
+    // TreeWalker は文書順なので closes の末尾が最後の closing tag
+    // それより前にある最後の opening tag を後ろから検索
+    let openPair: [Text, number] | null = null;
+    for (let i = opens.length - 1; i >= 0; i--) {
+      const [on, oo] = opens[i];
+      // closeNode と同一ノードで openOffset < closeOffset、または前のノード
+      if (on === closeNode && oo <= closeOffset) { openPair = [on, oo]; break; }
+      if (on !== closeNode) {
+        const pos = on.compareDocumentPosition(closeNode);
+        if (pos & Node.DOCUMENT_POSITION_FOLLOWING) { openPair = [on, oo]; break; }
+      }
+    }
+    if (!openPair) return null;
+    const [openNode, openOffset] = openPair;
 
     let fragment: DocumentFragment;
     try {
