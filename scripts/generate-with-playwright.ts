@@ -375,22 +375,47 @@ async function waitForNewOutput(
 
   if (shouldExtract) {
     if (!tagFound) console.warn(`⚠ タイムアウト（${maxWaitMs / 1000}秒）後 DOM 直接確認 → closing tag 発見`);
+
+    // ページ最上部にスクロール（opening tag が DOM から消えている場合の対策）
+    await page.evaluate(() => window.scrollTo(0, 0)).catch(() => {});
+    await page.waitForTimeout(1000);
+
     let bestContent = '';
     let stableCount = 0;
     for (let i = 0; i < 10; i++) {
       await page.waitForTimeout(3000);
 
-      // まず DOM Range API で Markdown 抽出を試みる
+      // 診断: opening tag の有無を確認
+      const diagInfo = await page.evaluate((tagName: string) => {
+        const text = document.body?.textContent ?? '';
+        return {
+          len: text.length,
+          hasOpen: text.includes(`[${tagName}]`),
+          hasClose: text.includes(`[/${tagName}]`),
+          openIdx: text.lastIndexOf(`[${tagName}]`),
+          closeIdx: text.lastIndexOf(`[/${tagName}]`),
+        };
+      }, tag).catch(() => null);
+      if (diagInfo) {
+        console.log(`  [抽出診断] textContent=${diagInfo.len}文字, open=${diagInfo.hasOpen}(${diagInfo.openIdx}), close=${diagInfo.hasClose}(${diagInfo.closeIdx})`);
+      }
+
+      // 1. DOM Range API で Markdown 抽出
       let content = await extractLastTaggedBlockMarkdown(page, tag).catch(() => null);
 
-      // Markdown 抽出が失敗した場合: textContent から平文で抽出
+      // 2. opening tag が見つからなくても closing tag 前の内容を平文抽出
       if (!content || content.length < minChars) {
         content = await page.evaluate((tagName: string) => {
           const text = document.body?.textContent ?? '';
-          const openIdx = text.lastIndexOf(`[${tagName}]`);
-          const closeIdx = text.lastIndexOf(`[/${tagName}]`);
-          if (openIdx === -1 || closeIdx <= openIdx) return null;
-          return text.slice(openIdx + tagName.length + 2, closeIdx).trim();
+          const openTag = `[${tagName}]`;
+          const closeTag = `[/${tagName}]`;
+          const closeIdx = text.lastIndexOf(closeTag);
+          if (closeIdx === -1) return null;
+          const openIdx = text.lastIndexOf(openTag);
+          const startIdx = (openIdx !== -1 && openIdx < closeIdx)
+            ? openIdx + openTag.length
+            : Math.max(0, closeIdx - 30000); // opening tag なしでも最大30000文字分遡る
+          return text.slice(startIdx, closeIdx).trim() || null;
         }, tag).catch(() => null);
         if (content) console.log(`  平文抽出: ${content.length}文字`);
       }
