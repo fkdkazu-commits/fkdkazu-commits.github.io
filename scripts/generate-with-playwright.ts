@@ -168,16 +168,9 @@ async function submitPrompt(page: Page, promptText: string): Promise<void> {
     await page.keyboard.press('Control+Enter');
     console.log('  送信: Ctrl+Enter');
   }
-  await page.waitForTimeout(3000);
-  const urlAfter = page.url();
-  const bodyLen = (await page.innerText('body').catch(() => '')).length;
-  console.log(`✓ プロンプト送信後 URL: ${urlAfter}`);
-  console.log(`  body文字数: ${bodyLen}`);
-
-  // デバッグ用スクリーンショット（送信直後の画面状態を保存）
-  const screenshotPath = path.join(ROOT, `debug-after-submit.png`);
-  await page.screenshot({ path: screenshotPath, fullPage: false }).catch(() => {});
-  console.log(`  スクリーンショット保存: ${screenshotPath}`);
+  await page.waitForTimeout(2000);
+  console.log(`✓ プロンプト送信後 URL: ${page.url()}`);
+  console.log(`  body文字数: ${await page.evaluate(() => document.body?.textContent?.length ?? 0).catch(() => 0)}`);
 }
 
 // ─── 出力検出 ─────────────────────────────────────────────────────────────────
@@ -384,21 +377,6 @@ async function waitForNewOutput(
     let stableCount = 0;
     for (let i = 0; i < 10; i++) {
       await page.waitForTimeout(3000);
-
-      // 診断: opening tag の有無を確認
-      const diagInfo = await page.evaluate((tagName: string) => {
-        const text = document.body?.textContent ?? '';
-        return {
-          len: text.length,
-          hasOpen: text.includes(`[${tagName}]`),
-          hasClose: text.includes(`[/${tagName}]`),
-          openIdx: text.lastIndexOf(`[${tagName}]`),
-          closeIdx: text.lastIndexOf(`[/${tagName}]`),
-        };
-      }, tag).catch(() => null);
-      if (diagInfo) {
-        console.log(`  [抽出診断] textContent=${diagInfo.len}文字, open=${diagInfo.hasOpen}(${diagInfo.openIdx}), close=${diagInfo.hasClose}(${diagInfo.closeIdx})`);
-      }
 
       // 1. DOM Range API で Markdown 抽出
       let content = await extractLastTaggedBlockMarkdown(page, tag).catch(() => null);
