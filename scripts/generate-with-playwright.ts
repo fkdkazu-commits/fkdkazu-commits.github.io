@@ -141,8 +141,13 @@ async function submitPrompt(page: Page, promptText: string): Promise<void> {
   }
   if (!inputBox) throw new Error('入力ボックスが見つかりません');
 
+  // 一度クリックしてフォーカスを当てる
+  await inputBox.click();
+  await page.waitForTimeout(500);
   await inputBox.fill(promptText);
+  await page.waitForTimeout(500);
   console.log(`✓ プロンプト入力 (${promptText.length}文字)`);
+  console.log(`  URL: ${page.url()}`);
 
   let sent = false;
   for (const selector of SUBMIT_SELECTORS) {
@@ -150,11 +155,19 @@ async function submitPrompt(page: Page, promptText: string): Promise<void> {
     if (btn) {
       await btn.click();
       sent = true;
+      console.log(`  送信ボタン: ${selector}`);
       break;
     }
   }
-  if (!sent) await page.keyboard.press('Control+Enter');
-  console.log('✓ プロンプト送信');
+  if (!sent) {
+    await page.keyboard.press('Control+Enter');
+    console.log('  送信: Ctrl+Enter');
+  }
+  await page.waitForTimeout(2000);
+  const urlAfter = page.url();
+  const bodyLen = (await page.innerText('body').catch(() => '')).length;
+  console.log(`✓ プロンプト送信後 URL: ${urlAfter}`);
+  console.log(`  body文字数: ${bodyLen}`);
 }
 
 // ─── 出力検出 ─────────────────────────────────────────────────────────────────
@@ -339,6 +352,16 @@ async function waitForNewOutput(
     try {
       const bodyText = await page.innerText('body').catch(() => '');
       lastBodyText = bodyText;
+      const bodyGrowthNow = bodyText.length - baselineBodyText.length;
+
+      // 30秒おきに診断ログを出力
+      if (iteration % 10 === 1) {
+        console.log(`  [診断] URL: ${page.url()}`);
+        console.log(`  [診断] body: ${bodyText.length}文字 (差分: ${bodyGrowthNow > 0 ? '+' : ''}${bodyGrowthNow})`);
+        const titleEl = await page.$('title').catch(() => null);
+        const title = titleEl ? await titleEl.innerText().catch(() => '') : '';
+        if (title) console.log(`  [診断] タイトル: ${title}`);
+      }
 
       // 1. タグ付きブロック優先（DOM Range API でMarkdown抽出）
       const totalBlocks = countTaggedBlocks(bodyText, tag);
@@ -392,8 +415,7 @@ async function waitForNewOutput(
       }
 
       // 3. body全体差分監視（セレクター非対応のUI変更に対する最終フォールバック）
-      const bodyGrowth = bodyText.length - baselineBodyText.length;
-      if (bodyGrowth > 300) {
+      if (bodyGrowthNow > 300) {
         // ベースライン末尾100字と重複させて新規テキストを取得
         const overlapStart = Math.max(0, baselineBodyText.length - 100);
         const tail = bodyText.slice(overlapStart).trim();
@@ -401,13 +423,13 @@ async function waitForNewOutput(
           if (tail.length === prevBestLen) {
             stableCount++;
             if (stableCount >= 2 && tail.length >= minChars) {
-              console.log(`✓ 出力確定（body差分）: ${tail.length}文字 (増加: +${bodyGrowth}文字)`);
+              console.log(`✓ 出力確定（body差分）: ${tail.length}文字 (増加: +${bodyGrowthNow}文字)`);
               return tail;
             }
           } else {
             prevBestLen = tail.length;
             stableCount = 0;
-            if (iteration % 5 === 0) console.log(`  body成長中: +${bodyGrowth}文字`);
+            if (iteration % 5 === 0) console.log(`  body成長中: +${bodyGrowthNow}文字`);
           }
           bestSelectorText = tail;
         }
