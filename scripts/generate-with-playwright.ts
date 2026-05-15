@@ -2,12 +2,12 @@
  * Playwright経由でClaude.ai Webを操作してSEO記事を自動生成する
  * 5ステップパイプライン: リサーチ→記事生成→ファクトチェック→品質向上→内部リンク
  *
- * APIキー不要 - Claude Proサブスクリプションのセッションを使用
+ * APIキー不要 - Claude Proサブスクリプションのセッションを永続プロファイルで管理
+ * CLAUDE_COOKIES 不要 - C:\Users\fkdka\.claude-profiles\ai-seo-blog に自動保存・再利用
  *
- * 実行方法:
- *   CLAUDE_COOKIES='[...]' npm run generate
+ * 初回実行時はブラウザが起動するのでClaude.aiにログインしてください（以降は自動）
  */
-import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
+import { chromium, type BrowserContext, type Page } from 'playwright';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -16,6 +16,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 const BLOG_DIR = path.join(ROOT, 'src', 'content', 'blog');
 const PROMPT_DIR = path.join(ROOT, 'data', 'prompts');
+
+// ブラウザプロファイル永続化ディレクトリ（セッションがここに保存・再利用される）
+const PROFILE_DIR = 'C:\\Users\\fkdka\\.claude-profiles\\ai-seo-blog';
 
 const CLAUDE_NEW_CHAT = 'https://claude.ai/new';
 
@@ -29,6 +32,22 @@ const SUBMIT_SELECTORS = [
   'button[type="submit"]',
 ];
 
+// アシスタント出力を探すセレクター（Claude UI変更に対応する多候補）
+const OUTPUT_SELECTORS = [
+  '[data-message-role="assistant"]',
+  '[data-testid*="assistant"]',
+  '[data-testid*="message"] .prose',
+  '.font-claude-message',
+  'div[class*="font-claude"]',
+  'div[class*="message-content"]',
+  'div[class*="AssistantMessage"]',
+  'div[class*="assistant-message"]',
+  'main article',
+  'main .prose',
+  'div.prose',
+  'main div[class*="prose"]',
+];
+
 const STEP_TAGS = [
   'SEO_RESEARCH_REPORT',
   'ARTICLE_DRAFT',
@@ -38,11 +57,11 @@ const STEP_TAGS = [
 ];
 const STEP_NAMES = ['リサーチ', '記事生成', 'ファクトチェック', '品質向上', '内部リンク'];
 const STEP_TIMEOUTS = [
-  600_000,   // Step 1: リサーチ     10分
-  1_800_000, // Step 2: 記事生成     30分（8000字以上）
+  600_000,   // Step 1: リサーチ        10分
+  1_800_000, // Step 2: 記事生成        30分（8000字以上）
   1_200_000, // Step 3: ファクトチェック 20分
-  900_000,   // Step 4: 品質向上     15分
-  600_000,   // Step 5: 内部リンク   10分
+  900_000,   // Step 4: 品質向上        15分
+  600_000,   // Step 5: 内部リンク      10分
 ];
 const STEP_FILES = [
   'step1-research.txt',
@@ -50,6 +69,16 @@ const STEP_FILES = [
   'step3-factcheck.txt',
   'step4-quality.txt',
   'step5-links.txt',
+];
+
+// 質問返し検知マーカー
+const INTERRUPT_MARKERS = [
+  'どこから着手しましょうか',
+  'どこから始めましょうか',
+  'どう進めましょうか',
+  '要件定義ですね',
+  'おはようございます',
+  'こんばんは',
 ];
 
 interface Keyword {
@@ -60,33 +89,28 @@ interface Keyword {
   generated?: boolean;
 }
 
-// ─── Playwright セッション ───────────────────────────────────────────────────
+// ─── セッション管理（永続プロファイル方式） ────────────────────────────────────
 
-async function buildContext(browser: Browser): Promise<BrowserContext> {
-  const context = await browser.newContext({
+async function buildContext(): Promise<BrowserContext> {
+  await fs.mkdir(PROFILE_DIR, { recursive: true });
+
+  const context = await chromium.launchPersistentContext(PROFILE_DIR, {
+    headless: false,
+    args: [
+      '--disable-blink-features=AutomationControlled',
+      '--disable-dev-shm-usage',
+    ],
     userAgent:
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
     viewport: { width: 1280, height: 900 },
     locale: 'ja-JP',
   });
 
-  await context.addInitScript(() => {
-    Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-    Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3] });
-    Object.defineProperty(navigator, 'languages', { get: () => ['ja-JP', 'ja', 'en'] });
-  });
-
-  const cookiesJson = process.env.CLAUDE_COOKIES;
-  if (!cookiesJson) {
-    throw new Error('環境変数 CLAUDE_COOKIES が設定されていません。SETUP.md を参照してください。');
-  }
-  const cookies = JSON.parse(cookiesJson);
-  await context.addCookies(cookies);
-  console.log(`✓ Claude.ai Cookie を注入 (${cookies.length}件)`);
   return context;
 }
 
-async function waitForInputBox(page: Page, timeoutMs = 30_000): Promise<void> {
+async function waitForInputBox(page: Page, timeoutMs = 300_000): Promise<void> {
+  // 最大5分待機（初回ログイン時にユーザーが手動でログインする時間を確保）
   for (const selector of INPUT_SELECTORS) {
     try {
       await page.waitForSelector(selector, { timeout: timeoutMs });
@@ -101,7 +125,7 @@ async function waitForInputBox(page: Page, timeoutMs = 30_000): Promise<void> {
   console.error(`現在のURL: ${url}`);
   console.error(`ページタイトル: ${title}`);
   console.error(`ページ内容（先頭300字）: ${bodySnippet}`);
-  throw new Error('Claude.ai の入力ボックスが見つかりません。Cookieの有効期限が切れている可能性があります。');
+  throw new Error('Claude.ai の入力ボックスが見つかりません。ブラウザでログインしてください。');
 }
 
 async function submitPrompt(page: Page, promptText: string): Promise<void> {
@@ -131,8 +155,44 @@ async function submitPrompt(page: Page, promptText: string): Promise<void> {
 // ─── 出力検出 ─────────────────────────────────────────────────────────────────
 
 function countTaggedBlocks(text: string, tag: string): number {
+  // 全角括弧・エスケープ括弧を正規化してからカウント
+  const normalized = text
+    .replace(/［/g, '[').replace(/］/g, ']')
+    .replace(/【/g, '[').replace(/】/g, ']')
+    .replace(/\\\[/g, '[').replace(/\\\]/g, ']');
   const re = new RegExp(`\\[\\s*${tag}\\s*\\]([\\s\\S]*?)\\[\\s*/\\s*${tag}\\s*\\]`, 'gi');
-  return [...text.matchAll(re)].length;
+  return [...normalized.matchAll(re)].length;
+}
+
+function isConversationalInterrupt(text: string, tag: string): boolean {
+  if (!text.trim()) return true;
+  const upper = text.toUpperCase();
+  if (upper.includes(`[${tag}]`) || upper.includes('[SEO_RESEARCH_REPORT]')) return false;
+  return INTERRUPT_MARKERS.some((m) => text.includes(m));
+}
+
+function buildRecoveryPrompt(): string {
+  return (
+    '前の依頼は相談ではなく実行指示です。\n' +
+    '質問や確認はせず、このまま処理を最後まで実行してください。\n' +
+    '前の指示で要求された出力フォーマットのみを返してください。'
+  );
+}
+
+async function snapshotAssistantCandidates(page: Page): Promise<Set<string>> {
+  const snapshot = new Set<string>();
+  for (const selector of OUTPUT_SELECTORS) {
+    try {
+      const elements = await page.$$(selector);
+      for (const el of elements) {
+        const text = (await el.innerText()).trim();
+        if (text.length >= 40) snapshot.add(text);
+      }
+    } catch {
+      continue;
+    }
+  }
+  return snapshot;
 }
 
 /**
@@ -144,13 +204,11 @@ async function extractLastTaggedBlockMarkdown(page: Page, tag: string): Promise<
     const openTag = `[${tagName}]`;
     const closeTag = `[/${tagName}]`;
 
-    // 全テキストノードを収集
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     const textNodes: Text[] = [];
     let n: Node | null;
     while ((n = walker.nextNode())) textNodes.push(n as Text);
 
-    // 開始・終了タグの位置を収集
     const opens: [Text, number][] = [];
     const closes: [Text, number][] = [];
     for (const tn of textNodes) {
@@ -173,7 +231,6 @@ async function extractLastTaggedBlockMarkdown(page: Page, tag: string): Promise<
     const [openNode, openOffset] = opens[pairCount - 1];
     const [closeNode, closeOffset] = closes[pairCount - 1];
 
-    // DOM Range でタグ間のコンテンツを取得
     let fragment: DocumentFragment;
     try {
       const range = document.createRange();
@@ -184,7 +241,6 @@ async function extractLastTaggedBlockMarkdown(page: Page, tag: string): Promise<
       return null;
     }
 
-    // HTML → Markdown 変換
     function convert(node: Node): string {
       if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? '';
       if (node.nodeType !== Node.ELEMENT_NODE) return '';
@@ -246,59 +302,125 @@ async function extractLastTaggedBlockMarkdown(page: Page, tag: string): Promise<
 }
 
 /**
- * 指定タグの新しいブロック（baselineCount+1件目以降）が安定するまで待機
- * baselineCount: 送信前に存在していた完全なブロック数
+ * 指定タグの新しいブロックが安定するまで待機
+ * seo-article-pipeline の多層フォールバック戦略を移植:
+ *   1. タグ付きブロック（DOM Range API）
+ *   2. セレクターベース候補（安定性チェック）
+ *   3. タイムアウト後 body 再解析
+ *   4. ベスト出力フォールバック
  */
 async function waitForNewOutput(
   page: Page,
   baselineCount: number,
+  baselineSnapshot: Set<string>,
+  promptText: string,
   tag: string,
   maxWaitMs = 600_000,
   minChars = 500,
 ): Promise<string> {
   const deadline = Date.now() + maxWaitMs;
-  let bestText = '';
+  let bestTaggedText = '';
+  let bestSelectorText = '';
   let stableCount = 0;
   let iteration = 0;
+  let lastBodyText = '';
 
   while (Date.now() < deadline) {
     iteration++;
     await page.waitForTimeout(3000);
 
     try {
-      // タグ数カウントは innerText で十分（[TAG] は plain text として残る）
       const bodyText = await page.innerText('body').catch(() => '');
+      lastBodyText = bodyText;
+
+      // 1. タグ付きブロック優先（DOM Range API でMarkdown抽出）
       const totalBlocks = countTaggedBlocks(bodyText, tag);
-
-      // まだ新しいブロックが完成していない
-      if (totalBlocks <= baselineCount) continue;
-
-      // コンテンツ抽出は DOM ベース（Markdown 見出し・コードフェンスを保持）
-      const content = await extractLastTaggedBlockMarkdown(page, tag);
-      if (!content || content.length < minChars) continue;
-
-      if (content === bestText) {
-        stableCount++;
-        if (stableCount >= 2) {
-          console.log(`✓ 出力確定 [${tag}]: ${content.length}文字`);
-          return content;
+      if (totalBlocks > baselineCount) {
+        const content = await extractLastTaggedBlockMarkdown(page, tag);
+        if (content && content.length >= minChars) {
+          if (content === bestTaggedText) {
+            stableCount++;
+            if (stableCount >= 2) {
+              console.log(`✓ 出力確定 [${tag}]: ${content.length}文字`);
+              return content;
+            }
+          } else {
+            bestTaggedText = content;
+            stableCount = 0;
+            if (iteration % 5 === 0) console.log(`  生成中 [${tag}]: ${content.length}文字`);
+          }
+          continue;
         }
-      } else {
-        bestText = content;
-        stableCount = 0;
-        if (iteration % 5 === 0) console.log(`  生成中 [${tag}]: ${content.length}文字`);
+      }
+
+      // 2. セレクターベース検索（タグ検出待ち・UI変更対応）
+      const candidates: string[] = [];
+      for (const selector of OUTPUT_SELECTORS) {
+        try {
+          const elements = await page.$$(selector);
+          for (const el of elements) {
+            const text = (await el.innerText()).trim();
+            if (text.length >= 100 && !baselineSnapshot.has(text)) {
+              candidates.push(text);
+            }
+          }
+        } catch {
+          continue;
+        }
+      }
+
+      if (candidates.length > 0) {
+        const current = candidates.reduce((a, b) => (a.length > b.length ? a : b));
+        if (current.length > bestSelectorText.length) bestSelectorText = current;
+
+        if (current === bestTaggedText || current === bestSelectorText) {
+          stableCount++;
+          if (stableCount >= 2 && current.length >= minChars) {
+            console.log(`✓ 出力確定（セレクター）: ${current.length}文字`);
+            return current;
+          }
+        } else {
+          bestSelectorText = current;
+          stableCount = 0;
+        }
+        if (iteration % 10 === 0) console.log(`  待機中 [${tag}]: ${current.length}文字`);
       }
     } catch {
       // ページ遷移等の一時的エラーは無視
     }
   }
 
-  if (bestText.length >= minChars) {
-    console.warn(`⚠ タイムアウト - ベスト出力を採用: ${bestText.length}文字`);
-    return bestText;
+  // ─── フォールバック: タイムアウト後も出力があれば採用 ───
+  console.warn(`⚠ タイムアウト（${maxWaitMs / 1000}秒）- フォールバック処理`);
+
+  // タイムアウト後 body 再解析でタグ付きブロックを最終確認
+  if (lastBodyText) {
+    const totalBlocks = countTaggedBlocks(lastBodyText, tag);
+    if (totalBlocks > baselineCount) {
+      const content = await extractLastTaggedBlockMarkdown(page, tag).catch(() => null);
+      if (content && content.length >= minChars) {
+        console.warn(`⚠ タイムアウト後 body 再解析でタグ付きブロックを採用: ${content.length}文字`);
+        return content;
+      }
+    }
   }
+
+  // タグなしでもベスト出力を採用
+  const best = bestTaggedText.length > bestSelectorText.length ? bestTaggedText : bestSelectorText;
+  if (best.length >= minChars) {
+    console.warn(`⚠ ベスト出力を採用: ${best.length}文字`);
+    return best;
+  }
+
+  // 最終救済: minChars の1/3 以上あれば次工程へ渡す
+  const minPartial = Math.max(200, Math.floor(minChars / 3));
+  if (best.length >= minPartial) {
+    console.warn(`⚠ 部分出力（${best.length}文字）を採用して続行`);
+    return best;
+  }
+
   throw new Error(
-    `タイムアウト: [${tag}] の新規ブロックが${maxWaitMs / 1000}秒以内に得られませんでした`,
+    `タイムアウト: [${tag}] の出力が${maxWaitMs / 1000}秒以内に得られませんでした（最大: ${best.length}文字）`,
   );
 }
 
@@ -347,18 +469,14 @@ function parseArticleOutput(
   inner: string,
   fullBody: string,
 ): { title: string; body: string; description: string } {
-  // 残留タグを除去（Claudeがネストして出力した場合に対応）
   let cleaned = inner
     .replace(/\[\s*\/?ARTICLE_DRAFT\s*\]/gi, '')
     .replace(/\[\s*\/?SEO_RESEARCH_REPORT\s*\]/gi, '')
     .trim();
 
-  // 記事タイプ宣言行を除去（例: 【記事タイプ】：一般記事）
   cleaned = cleaned.replace(/^【記事タイプ】：[^\n]+\n?/m, '').trim();
 
-  // DOM ベース抽出で Markdown の # 見出しが保持される
   const mdHeading = cleaned.match(/^#\s+(.+)/m);
-  // フォールバック: #が付かない場合は最初の行をタイトルとして使用
   const firstLine = cleaned.match(/^(.+)/m);
 
   const title = mdHeading
@@ -367,15 +485,13 @@ function parseArticleOutput(
       ? firstLine[1].replace(/^#+\s*/, '').trim()
       : 'タイトル未取得';
 
-  // meta_description は [ARTICLE_DRAFT] タグ外に出力されるため fullBody から取得
   const descMatches = [...fullBody.matchAll(/meta_description:\s*(.+)/gi)];
   const description =
     descMatches.length > 0 ? descMatches[descMatches.length - 1][1].trim() : '';
 
-  // タイトル行と meta_description 行を除去してボディを構築
   const bodyWithoutTitle = mdHeading
     ? cleaned.replace(/^#\s+.+\n?/m, '')
-    : cleaned.replace(/^.+\n?/m, ''); // レンダリング済みテキストの場合は最初の行を除去
+    : cleaned.replace(/^.+\n?/m, '');
 
   const body = bodyWithoutTitle
     .replace(/meta_description:.+$/im, '')
@@ -419,61 +535,77 @@ async function main() {
   }
 
   console.log(`\n記事生成開始: "${target.keyword}"`);
+  console.log(`プロファイルディレクトリ: ${PROFILE_DIR}`);
 
   const sitemapCsv = await buildSitemapCsv();
   console.log(`✓ サイトマップCSV: ${sitemapCsv.split('\n').length - 1}件`);
 
   const prompts = await buildPipelinePrompts(target, sitemapCsv);
 
-  let browser: Browser | null = null;
+  let context: BrowserContext | null = null;
   let finalTaggedContent = '';
   let finalFullBody = '';
 
   try {
-    const chromePaths = [
-      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-      process.env.CHROME_PATH,
-    ].filter(Boolean) as string[];
-
-    const executablePath = chromePaths.find((p) => {
-      try {
-        return require('fs').existsSync(p);
-      } catch {
-        return false;
-      }
-    });
-
-    browser = await chromium.launch({
-      headless: false,
-      executablePath,
-      args: ['--disable-blink-features=AutomationControlled'],
-    });
-    const context = await buildContext(browser);
-    const page = await context.newPage();
+    context = await buildContext();
+    const page = context.pages().length > 0 ? context.pages()[0] : await context.newPage();
 
     console.log('Claude.ai に接続中...');
     await page.goto(CLAUDE_NEW_CHAT, { waitUntil: 'domcontentloaded', timeout: 60_000 });
-    await waitForInputBox(page, 30_000);
+
+    // 初回ログイン時は最大5分待機（ユーザーが手動でログインする時間）
+    console.log('ログイン確認中（未ログインの場合はブラウザでログインしてください）...');
+    await waitForInputBox(page, 300_000);
     console.log('✓ Claude.ai ログイン確認済み');
     await page.waitForLoadState('networkidle').catch(() => {});
     await page.waitForTimeout(2000);
 
-    // 5ステップパイプライン実行（同一会話内でコンテキストが引き継がれる）
+    // 5ステップパイプライン実行（同一会話でコンテキストを引き継ぐ）
     for (let i = 0; i < prompts.length; i++) {
       const tag = STEP_TAGS[i];
       console.log(`\n[Step ${i + 1}/5] ${STEP_NAMES[i]}開始...`);
 
-      // 送信前のブロック数を記録（新しいブロックの出現を正確に検知するため）
+      // 送信前スナップショット（既存メッセージとの区別に使用）
       const bodyText = await page.innerText('body').catch(() => '');
       const baselineCount = countTaggedBlocks(bodyText, tag);
+      const baselineSnapshot = await snapshotAssistantCandidates(page);
 
       await submitPrompt(page, prompts[i]);
 
       const mins = STEP_TIMEOUTS[i] / 60_000;
       console.log(`  ${STEP_NAMES[i]}中（最大${mins}分待機）...`);
-      const stepOutput = await waitForNewOutput(page, baselineCount, tag, STEP_TIMEOUTS[i], 500);
+
+      let stepOutput = await waitForNewOutput(
+        page,
+        baselineCount,
+        baselineSnapshot,
+        prompts[i],
+        tag,
+        STEP_TIMEOUTS[i],
+        500,
+      );
       console.log(`✓ Step ${i + 1} 完了: ${stepOutput.length}文字`);
+
+      // 質問返し検知 → 自動回復プロンプトを1回送信
+      if (isConversationalInterrupt(stepOutput, tag)) {
+        console.warn(`⚠ 質問返しを検知。回復プロンプトを送信します...`);
+        const recoveryBaselineCount = countTaggedBlocks(
+          await page.innerText('body').catch(() => ''),
+          tag,
+        );
+        const recoverySnapshot = await snapshotAssistantCandidates(page);
+        await submitPrompt(page, buildRecoveryPrompt());
+        stepOutput = await waitForNewOutput(
+          page,
+          recoveryBaselineCount,
+          recoverySnapshot,
+          buildRecoveryPrompt(),
+          tag,
+          STEP_TIMEOUTS[i],
+          500,
+        );
+        console.log(`✓ 回復後 Step ${i + 1}: ${stepOutput.length}文字`);
+      }
 
       if (i === prompts.length - 1) {
         finalTaggedContent = stepOutput;
@@ -484,10 +616,8 @@ async function main() {
         await page.waitForTimeout(3000);
       }
     }
-
-    await context.close();
   } finally {
-    if (browser) await browser.close();
+    if (context) await context.close();
   }
 
   const { title, body, description } = parseArticleOutput(finalTaggedContent, finalFullBody);

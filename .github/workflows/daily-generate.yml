@@ -28,11 +28,9 @@ jobs:
         run: npx playwright install chromium
 
       - name: Generate article via Claude.ai (5-step pipeline)
-        env:
-          # GitHub Secrets に保存したClaude.aiのセッションCookie (JSON配列)
-          CLAUDE_COOKIES: ${{ secrets.CLAUDE_COOKIES }}
         run: npm run generate
         # 5ステップ×最大10分 + バッファ = 最大60分
+        # セッションは ~/.claude-profiles/ai-seo-blog に永続化（CLAUDE_COOKIES 不要）
 
       - name: Sync OG image cache with git
         run: git clean -fd -- public/og/
@@ -43,8 +41,6 @@ jobs:
         run: npm run og
 
       - name: Add internal links to existing articles
-        env:
-          CLAUDE_COOKIES: ${{ secrets.CLAUDE_COOKIES }}
         run: npm run link
         # 新記事はstep5で処理済み。既存記事の内部リンク更新を担当
 

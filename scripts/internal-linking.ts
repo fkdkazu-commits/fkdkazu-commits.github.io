@@ -1,9 +1,9 @@
 /**
  * 内部リンク自動追加スクリプト
  * PlaywrightでClaude.aiを操作して関連記事を分析し、内部リンクを挿入する
- * Claude APIキー不要 - CLAUDE_COOKIES のみで動作
+ * Claude APIキー不要 - 永続プロファイル（~/.claude-profiles/ai-seo-blog）で動作
  */
-import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
+import { chromium, type BrowserContext, type Page } from 'playwright';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -11,6 +11,7 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 const BLOG_DIR = path.join(ROOT, 'src', 'content', 'blog');
+const PROFILE_DIR = 'C:\\Users\\fkdka\\.claude-profiles\\ai-seo-blog';
 
 const INPUT_SELECTORS = ['div[contenteditable="true"]', 'textarea', 'div[contenteditable]'];
 const SUBMIT_SELECTORS = ['button[aria-label*="Send"]', 'button[type="submit"]'];
@@ -57,15 +58,15 @@ async function loadAllArticles(): Promise<ArticleSummary[]> {
 
 // ─── Playwright ───────────────────────────────────────────────────────────────
 
-async function buildContext(browser: Browser): Promise<BrowserContext> {
-  const context = await browser.newContext({
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36',
+async function buildContext(): Promise<BrowserContext> {
+  await fs.mkdir(PROFILE_DIR, { recursive: true });
+  return chromium.launchPersistentContext(PROFILE_DIR, {
+    headless: false,
+    args: ['--disable-blink-features=AutomationControlled', '--disable-dev-shm-usage'],
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    viewport: { width: 1280, height: 900 },
     locale: 'ja-JP',
   });
-  const cookiesJson = process.env.CLAUDE_COOKIES;
-  if (!cookiesJson) throw new Error('CLAUDE_COOKIES が未設定です');
-  await context.addCookies(JSON.parse(cookiesJson));
-  return context;
 }
 
 async function sendPromptAndWait(page: Page, prompt: string, maxWaitMs = 120_000): Promise<string> {
@@ -181,28 +182,15 @@ async function main() {
 
   console.log(`内部リンク解析: ${target.title}`);
 
-  const chromePaths = [
-    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-    process.env.CHROME_PATH,
-  ].filter(Boolean) as string[];
-  const executablePath = chromePaths.find((p) => {
-    try { return require('fs').existsSync(p); } catch { return false; }
-  });
-  const browser = await chromium.launch({
-    headless: false,
-    executablePath,
-    args: ['--disable-blink-features=AutomationControlled'],
-  });
+  const context = await buildContext();
   try {
-    const context = await buildContext(browser);
-    const page = await context.newPage();
+    const pages = context.pages();
+    const page: Page = pages.length > 0 ? pages[0] : await context.newPage();
     await page.goto('https://claude.ai/new', { waitUntil: 'domcontentloaded', timeout: 60_000 });
-    await page.waitForSelector('div[contenteditable="true"]', { timeout: 30_000 });
+    await page.waitForSelector('div[contenteditable="true"]', { timeout: 60_000 });
 
     const others = articles.filter((a) => a.slug !== targetSlug);
     const slugs = await findRelatedSlugs(page, target, others);
-    await context.close();
 
     const related = others.filter((a) => slugs.includes(a.slug));
     if (related.length === 0) {
@@ -211,7 +199,7 @@ async function main() {
     }
     await insertLinks(targetSlug, related);
   } finally {
-    await browser.close();
+    await context.close();
   }
 }
 
