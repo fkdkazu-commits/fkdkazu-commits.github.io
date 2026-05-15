@@ -94,6 +94,11 @@ interface Keyword {
 async function buildContext(): Promise<BrowserContext> {
   await fs.mkdir(PROFILE_DIR, { recursive: true });
 
+  // プロファイルの SingletonLock / LOCK ファイルを削除（前回クラッシュ時のロック解除）
+  for (const lockFile of ['SingletonLock', 'SingletonCookie', 'Default/LOCK']) {
+    await fs.unlink(path.join(PROFILE_DIR, lockFile)).catch(() => {});
+  }
+
   const context = await chromium.launchPersistentContext(PROFILE_DIR, {
     headless: false,
     args: [
@@ -325,12 +330,9 @@ async function extractLastTaggedBlockMarkdown(page: Page, tag: string): Promise<
 }
 
 /**
- * 指定タグの新しいブロックが安定するまで待機
- * seo-article-pipeline の多層フォールバック戦略を移植:
- *   1. タグ付きブロック（DOM Range API）
- *   2. セレクターベース候補（安定性チェック）
- *   3. タイムアウト後 body 再解析
- *   4. ベスト出力フォールバック
+ * 指定タグの closing tag が出現するまで page.waitForFunction で待機し、
+ * 出現後に extractLastTaggedBlockMarkdown で Markdown 抽出する。
+ * innerText / CSS セレクターに依存しない最もシンプルで確実な実装。
  */
 async function waitForNewOutput(
   page: Page,
@@ -342,110 +344,59 @@ async function waitForNewOutput(
   maxWaitMs = 600_000,
   minChars = 500,
 ): Promise<string> {
-  const deadline = Date.now() + maxWaitMs;
-  let bestTaggedText = '';
-  let bestSelectorText = '';
-  let stableCount = 0;
-  let prevBestLen = 0;
-  let iteration = 0;
-  let lastBodyText = '';
+  const closingTag = `[/${tag}]`;
+  console.log(`  closing tag 待機中: "${closingTag}"`);
 
-  while (Date.now() < deadline) {
-    iteration++;
-    await page.waitForTimeout(3000);
-
-    try {
-      // 30秒おきに診断ログ
-      if (iteration % 10 === 1) {
-        const diagUrl = page.url();
-        const diagBody = await page.evaluate(() => document.body?.textContent?.length ?? 0).catch(() => -1);
-        console.log(`  [診断] URL: ${diagUrl}`);
-        console.log(`  [診断] body.textContent.length: ${diagBody}`);
-      }
-
-      // 1. page.evaluate で DOM を直接読む（innerText 失敗の回避）
-      //    closing tag が存在すれば extractLastTaggedBlockMarkdown を試みる
-      const hasClosingTag = await page.evaluate((tagName: string) => {
+  // ─── 主戦略: page.waitForFunction でブラウザ内部から closing tag を検知 ───
+  let tagFound = false;
+  try {
+    await page.waitForFunction(
+      ({ closing, baseline }: { closing: string; baseline: number }) => {
         const text = document.body?.textContent ?? '';
-        return text.includes(`[/${tagName}]`) || text.includes(`[${tagName.replace(/_/g, ' ')}/]`);
-      }, tag).catch(() => false);
+        // baseline より多くの closing tag が存在するか確認
+        let count = 0;
+        let pos = 0;
+        while ((pos = text.indexOf(closing, pos)) !== -1) { count++; pos++; }
+        return count > baseline;
+      },
+      { closing: closingTag, baseline: baselineCount },
+      { timeout: maxWaitMs, polling: 2000 },
+    );
+    tagFound = true;
+    console.log(`  closing tag 検知！Markdown 抽出中...`);
+  } catch {
+    console.warn(`⚠ waitForFunction タイムアウト（${maxWaitMs / 1000}秒）- フォールバック処理`);
+  }
 
-      if (hasClosingTag) {
-        const content = await extractLastTaggedBlockMarkdown(page, tag);
-        if (content && content.length >= minChars) {
-          if (content === bestTaggedText) {
-            stableCount++;
-            if (stableCount >= 2) {
-              console.log(`✓ 出力確定 [${tag}]: ${content.length}文字`);
-              return content;
-            }
-          } else {
-            bestTaggedText = content;
-            stableCount = 0;
-            console.log(`  生成完了検知 [${tag}]: ${content.length}文字（安定待ち ${stableCount}/2）`);
-          }
-          continue;
-        }
-      }
-
-      // 2. page.evaluate でページ全体テキストを取得し差分監視
-      const pageText = await page.evaluate(() => document.body?.textContent ?? '').catch(() => '');
-      lastBodyText = pageText;
-      const bodyGrowthNow = pageText.length - baselineBodyText.length;
-
-      if (bodyGrowthNow > 300) {
-        const overlapStart = Math.max(0, baselineBodyText.length - 100);
-        const tail = pageText.slice(overlapStart).trim();
-        if (tail.length > prevBestLen) {
-          prevBestLen = tail.length;
-          bestSelectorText = tail;
-          stableCount = 0;
-          if (iteration % 5 === 0) console.log(`  body成長中: +${bodyGrowthNow}文字`);
-        } else if (tail.length === prevBestLen && tail.length >= minChars) {
+  // tag が見つかった場合: 安定するまで最大 30 秒待機して抽出
+  if (tagFound) {
+    let bestContent = '';
+    let stableCount = 0;
+    for (let i = 0; i < 10; i++) {
+      await page.waitForTimeout(3000);
+      const content = await extractLastTaggedBlockMarkdown(page, tag).catch(() => null);
+      if (content && content.length >= minChars) {
+        if (content === bestContent) {
           stableCount++;
           if (stableCount >= 2) {
-            console.log(`✓ 出力確定（body差分）: ${tail.length}文字 (+${bodyGrowthNow})`);
-            return tail;
+            console.log(`✓ 出力確定 [${tag}]: ${content.length}文字`);
+            return content;
           }
-        }
-      }
-
-      // 3. CSS セレクターベース（レガシーフォールバック）
-      const candidates: string[] = [];
-      for (const selector of OUTPUT_SELECTORS) {
-        try {
-          const elements = await page.$$(selector);
-          for (const el of elements) {
-            const text = (await el.innerText()).trim();
-            if (text.length >= 100 && !baselineSnapshot.has(text)) candidates.push(text);
-          }
-        } catch { continue; }
-      }
-      if (candidates.length > 0) {
-        const current = candidates.reduce((a, b) => (a.length > b.length ? a : b));
-        if (current.length > bestSelectorText.length) {
-          bestSelectorText = current;
+        } else {
+          bestContent = content;
           stableCount = 0;
-        } else if (current.length === bestSelectorText.length && current.length >= minChars) {
-          stableCount++;
-          if (stableCount >= 2) {
-            console.log(`✓ 出力確定（セレクター）: ${current.length}文字`);
-            return current;
-          }
+          console.log(`  抽出中 [${tag}]: ${content.length}文字`);
         }
-        if (iteration % 10 === 0) console.log(`  待機中 [${tag}]: ${current.length}文字`);
       }
-
-    } catch {
-      // ページ遷移等の一時的エラーは無視
+    }
+    if (bestContent.length >= minChars) {
+      console.log(`✓ 出力確定（安定待ち省略）[${tag}]: ${bestContent.length}文字`);
+      return bestContent;
     }
   }
 
-  // ─── フォールバック: タイムアウト後も出力があれば採用 ───
+  // ─── フォールバック: タイムアウト後 DOM 直接確認 ───
   console.warn(`⚠ タイムアウト（${maxWaitMs / 1000}秒）- フォールバック処理`);
-
-  // タイムアウト後 body 再解析でタグ付きブロックを最終確認
-  // タイムアウト後: DOM を直接確認して最終救済
   const finalHasTag = await page.evaluate((tagName: string) => {
     const text = document.body?.textContent ?? '';
     return text.includes(`[/${tagName}]`);
@@ -456,20 +407,6 @@ async function waitForNewOutput(
       console.warn(`⚠ タイムアウト後 DOM 直接読み取りでタグ付きブロックを採用: ${content.length}文字`);
       return content;
     }
-  }
-
-  // タグなしでもベスト出力を採用
-  const best = bestTaggedText.length > bestSelectorText.length ? bestTaggedText : bestSelectorText;
-  if (best.length >= minChars) {
-    console.warn(`⚠ ベスト出力を採用: ${best.length}文字`);
-    return best;
-  }
-
-  // 最終救済: minChars の1/3 以上あれば次工程へ渡す
-  const minPartial = Math.max(200, Math.floor(minChars / 3));
-  if (best.length >= minPartial) {
-    console.warn(`⚠ 部分出力（${best.length}文字）を採用して続行`);
-    return best;
   }
 
   throw new Error(
