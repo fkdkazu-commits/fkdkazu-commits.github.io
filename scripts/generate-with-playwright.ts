@@ -163,11 +163,16 @@ async function submitPrompt(page: Page, promptText: string): Promise<void> {
     await page.keyboard.press('Control+Enter');
     console.log('  送信: Ctrl+Enter');
   }
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(3000);
   const urlAfter = page.url();
   const bodyLen = (await page.innerText('body').catch(() => '')).length;
   console.log(`✓ プロンプト送信後 URL: ${urlAfter}`);
   console.log(`  body文字数: ${bodyLen}`);
+
+  // デバッグ用スクリーンショット（送信直後の画面状態を保存）
+  const screenshotPath = path.join(ROOT, `debug-after-submit.png`);
+  await page.screenshot({ path: screenshotPath, fullPage: false }).catch(() => {});
+  console.log(`  スクリーンショット保存: ${screenshotPath}`);
 }
 
 // ─── 出力検出 ─────────────────────────────────────────────────────────────────
