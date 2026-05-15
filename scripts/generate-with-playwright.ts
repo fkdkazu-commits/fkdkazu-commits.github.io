@@ -368,13 +368,33 @@ async function waitForNewOutput(
     console.warn(`⚠ waitForFunction タイムアウト（${maxWaitMs / 1000}秒）- フォールバック処理`);
   }
 
-  // tag が見つかった場合: 安定するまで最大 30 秒待機して抽出
-  if (tagFound) {
+  // tag が見つかった（または後続フォールバック）の場合: 安定するまで最大 30 秒待機して抽出
+  const shouldExtract = tagFound || await page.evaluate(
+    (t: string) => (document.body?.textContent ?? '').includes(`[/${t}]`), tag
+  ).catch(() => false);
+
+  if (shouldExtract) {
+    if (!tagFound) console.warn(`⚠ タイムアウト（${maxWaitMs / 1000}秒）後 DOM 直接確認 → closing tag 発見`);
     let bestContent = '';
     let stableCount = 0;
     for (let i = 0; i < 10; i++) {
       await page.waitForTimeout(3000);
-      const content = await extractLastTaggedBlockMarkdown(page, tag).catch(() => null);
+
+      // まず DOM Range API で Markdown 抽出を試みる
+      let content = await extractLastTaggedBlockMarkdown(page, tag).catch(() => null);
+
+      // Markdown 抽出が失敗した場合: textContent から平文で抽出
+      if (!content || content.length < minChars) {
+        content = await page.evaluate((tagName: string) => {
+          const text = document.body?.textContent ?? '';
+          const openIdx = text.lastIndexOf(`[${tagName}]`);
+          const closeIdx = text.lastIndexOf(`[/${tagName}]`);
+          if (openIdx === -1 || closeIdx <= openIdx) return null;
+          return text.slice(openIdx + tagName.length + 2, closeIdx).trim();
+        }, tag).catch(() => null);
+        if (content) console.log(`  平文抽出: ${content.length}文字`);
+      }
+
       if (content && content.length >= minChars) {
         if (content === bestContent) {
           stableCount++;
@@ -387,30 +407,24 @@ async function waitForNewOutput(
           stableCount = 0;
           console.log(`  抽出中 [${tag}]: ${content.length}文字`);
         }
+      } else {
+        console.log(`  抽出待機中 (${i + 1}/10): content=${content?.length ?? 0}文字`);
       }
     }
     if (bestContent.length >= minChars) {
       console.log(`✓ 出力確定（安定待ち省略）[${tag}]: ${bestContent.length}文字`);
       return bestContent;
     }
-  }
-
-  // ─── フォールバック: タイムアウト後 DOM 直接確認 ───
-  console.warn(`⚠ タイムアウト（${maxWaitMs / 1000}秒）- フォールバック処理`);
-  const finalHasTag = await page.evaluate((tagName: string) => {
-    const text = document.body?.textContent ?? '';
-    return text.includes(`[/${tagName}]`);
-  }, tag).catch(() => false);
-  if (finalHasTag) {
-    const content = await extractLastTaggedBlockMarkdown(page, tag).catch(() => null);
-    if (content && content.length >= minChars) {
-      console.warn(`⚠ タイムアウト後 DOM 直接読み取りでタグ付きブロックを採用: ${content.length}文字`);
-      return content;
+    if (bestContent.length > 0) {
+      console.warn(`⚠ 短い出力（${bestContent.length}文字）を採用して続行`);
+      return bestContent;
     }
+  } else {
+    console.warn(`⚠ タイムアウト（${maxWaitMs / 1000}秒）- closing tag が見つかりませんでした`);
   }
 
   throw new Error(
-    `タイムアウト: [${tag}] の出力が${maxWaitMs / 1000}秒以内に得られませんでした（最大: ${best.length}文字）`,
+    `タイムアウト: [${tag}] の出力が${maxWaitMs / 1000}秒以内に得られませんでした`,
   );
 }
 
