@@ -355,22 +355,22 @@ async function waitForNewOutput(
     await page.waitForTimeout(3000);
 
     try {
-      const bodyText = await page.innerText('body').catch(() => '');
-      lastBodyText = bodyText;
-      const bodyGrowthNow = bodyText.length - baselineBodyText.length;
-
-      // 30秒おきに診断ログを出力
+      // 30秒おきに診断ログ
       if (iteration % 10 === 1) {
-        console.log(`  [診断] URL: ${page.url()}`);
-        console.log(`  [診断] body: ${bodyText.length}文字 (差分: ${bodyGrowthNow > 0 ? '+' : ''}${bodyGrowthNow})`);
-        const titleEl = await page.$('title').catch(() => null);
-        const title = titleEl ? await titleEl.innerText().catch(() => '') : '';
-        if (title) console.log(`  [診断] タイトル: ${title}`);
+        const diagUrl = page.url();
+        const diagBody = await page.evaluate(() => document.body?.textContent?.length ?? 0).catch(() => -1);
+        console.log(`  [診断] URL: ${diagUrl}`);
+        console.log(`  [診断] body.textContent.length: ${diagBody}`);
       }
 
-      // 1. タグ付きブロック優先（DOM Range API でMarkdown抽出）
-      const totalBlocks = countTaggedBlocks(bodyText, tag);
-      if (totalBlocks > baselineCount) {
+      // 1. page.evaluate で DOM を直接読む（innerText 失敗の回避）
+      //    closing tag が存在すれば extractLastTaggedBlockMarkdown を試みる
+      const hasClosingTag = await page.evaluate((tagName: string) => {
+        const text = document.body?.textContent ?? '';
+        return text.includes(`[/${tagName}]`) || text.includes(`[${tagName.replace(/_/g, ' ')}/]`);
+      }, tag).catch(() => false);
+
+      if (hasClosingTag) {
         const content = await extractLastTaggedBlockMarkdown(page, tag);
         if (content && content.length >= minChars) {
           if (content === bestTaggedText) {
@@ -382,34 +382,51 @@ async function waitForNewOutput(
           } else {
             bestTaggedText = content;
             stableCount = 0;
-            if (iteration % 5 === 0) console.log(`  生成中 [${tag}]: ${content.length}文字`);
+            console.log(`  生成完了検知 [${tag}]: ${content.length}文字（安定待ち ${stableCount}/2）`);
           }
           continue;
         }
       }
 
-      // 2. セレクターベース検索（タグ検出待ち・UI変更対応）
+      // 2. page.evaluate でページ全体テキストを取得し差分監視
+      const pageText = await page.evaluate(() => document.body?.textContent ?? '').catch(() => '');
+      lastBodyText = pageText;
+      const bodyGrowthNow = pageText.length - baselineBodyText.length;
+
+      if (bodyGrowthNow > 300) {
+        const overlapStart = Math.max(0, baselineBodyText.length - 100);
+        const tail = pageText.slice(overlapStart).trim();
+        if (tail.length > prevBestLen) {
+          prevBestLen = tail.length;
+          bestSelectorText = tail;
+          stableCount = 0;
+          if (iteration % 5 === 0) console.log(`  body成長中: +${bodyGrowthNow}文字`);
+        } else if (tail.length === prevBestLen && tail.length >= minChars) {
+          stableCount++;
+          if (stableCount >= 2) {
+            console.log(`✓ 出力確定（body差分）: ${tail.length}文字 (+${bodyGrowthNow})`);
+            return tail;
+          }
+        }
+      }
+
+      // 3. CSS セレクターベース（レガシーフォールバック）
       const candidates: string[] = [];
       for (const selector of OUTPUT_SELECTORS) {
         try {
           const elements = await page.$$(selector);
           for (const el of elements) {
             const text = (await el.innerText()).trim();
-            if (text.length >= 100 && !baselineSnapshot.has(text)) {
-              candidates.push(text);
-            }
+            if (text.length >= 100 && !baselineSnapshot.has(text)) candidates.push(text);
           }
-        } catch {
-          continue;
-        }
+        } catch { continue; }
       }
-
       if (candidates.length > 0) {
         const current = candidates.reduce((a, b) => (a.length > b.length ? a : b));
         if (current.length > bestSelectorText.length) {
           bestSelectorText = current;
           stableCount = 0;
-        } else if (current.length === bestSelectorText.length && bestSelectorText.length >= minChars) {
+        } else if (current.length === bestSelectorText.length && current.length >= minChars) {
           stableCount++;
           if (stableCount >= 2) {
             console.log(`✓ 出力確定（セレクター）: ${current.length}文字`);
@@ -419,26 +436,6 @@ async function waitForNewOutput(
         if (iteration % 10 === 0) console.log(`  待機中 [${tag}]: ${current.length}文字`);
       }
 
-      // 3. body全体差分監視（セレクター非対応のUI変更に対する最終フォールバック）
-      if (bodyGrowthNow > 300) {
-        // ベースライン末尾100字と重複させて新規テキストを取得
-        const overlapStart = Math.max(0, baselineBodyText.length - 100);
-        const tail = bodyText.slice(overlapStart).trim();
-        if (tail.length > bestSelectorText.length) {
-          if (tail.length === prevBestLen) {
-            stableCount++;
-            if (stableCount >= 2 && tail.length >= minChars) {
-              console.log(`✓ 出力確定（body差分）: ${tail.length}文字 (増加: +${bodyGrowthNow}文字)`);
-              return tail;
-            }
-          } else {
-            prevBestLen = tail.length;
-            stableCount = 0;
-            if (iteration % 5 === 0) console.log(`  body成長中: +${bodyGrowthNow}文字`);
-          }
-          bestSelectorText = tail;
-        }
-      }
     } catch {
       // ページ遷移等の一時的エラーは無視
     }
@@ -448,14 +445,16 @@ async function waitForNewOutput(
   console.warn(`⚠ タイムアウト（${maxWaitMs / 1000}秒）- フォールバック処理`);
 
   // タイムアウト後 body 再解析でタグ付きブロックを最終確認
-  if (lastBodyText) {
-    const totalBlocks = countTaggedBlocks(lastBodyText, tag);
-    if (totalBlocks > baselineCount) {
-      const content = await extractLastTaggedBlockMarkdown(page, tag).catch(() => null);
-      if (content && content.length >= minChars) {
-        console.warn(`⚠ タイムアウト後 body 再解析でタグ付きブロックを採用: ${content.length}文字`);
-        return content;
-      }
+  // タイムアウト後: DOM を直接確認して最終救済
+  const finalHasTag = await page.evaluate((tagName: string) => {
+    const text = document.body?.textContent ?? '';
+    return text.includes(`[/${tagName}]`);
+  }, tag).catch(() => false);
+  if (finalHasTag) {
+    const content = await extractLastTaggedBlockMarkdown(page, tag).catch(() => null);
+    if (content && content.length >= minChars) {
+      console.warn(`⚠ タイムアウト後 DOM 直接読み取りでタグ付きブロックを採用: ${content.length}文字`);
+      return content;
     }
   }
 
