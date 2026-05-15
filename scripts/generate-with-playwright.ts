@@ -20,6 +20,9 @@ const PROMPT_DIR = path.join(ROOT, 'data', 'prompts');
 // ブラウザプロファイル永続化ディレクトリ（セッションがここに保存・再利用される）
 const PROFILE_DIR = 'C:\\Users\\fkdka\\.claude-profiles\\ai-seo-blog';
 
+// 各ステップ出力のデバッグ保存先（.gitignore 済み）
+const DEBUG_DIR = path.join(ROOT, 'data', 'debug');
+
 const CLAUDE_NEW_CHAT = 'https://claude.ai/new';
 
 const INPUT_SELECTORS = [
@@ -70,6 +73,9 @@ const STEP_FILES = [
   'step4-quality.txt',
   'step5-links.txt',
 ];
+
+// 直前の waitForNewOutput でどちらの抽出メソッドを使ったか
+let lastExtractionMethod: 'dom-range' | 'plaintext' = 'dom-range';
 
 // 質問返し検知マーカー
 const INTERRUPT_MARKERS = [
@@ -351,6 +357,7 @@ async function waitForNewOutput(
   minChars = 500,
 ): Promise<string> {
   const closingTag = `[/${tag}]`;
+  lastExtractionMethod = 'dom-range'; // 毎回リセット
   console.log(`  closing tag 待機中: "${closingTag}"`);
 
   // ─── 主戦略: page.waitForFunction でブラウザ内部から closing tag を検知 ───
@@ -396,6 +403,7 @@ async function waitForNewOutput(
 
       // 2. opening tag が見つからなくても closing tag 前の内容を平文抽出
       if (!content || content.length < minChars) {
+        lastExtractionMethod = 'plaintext'; // DOM Range 失敗 → フォールバック
         content = await page.evaluate((tagName: string) => {
           const text = document.body?.textContent ?? '';
           const openTag = `[${tagName}]`;
@@ -408,7 +416,10 @@ async function waitForNewOutput(
             : Math.max(0, closeIdx - 30000); // opening tag なしでも最大30000文字分遡る
           return text.slice(startIdx, closeIdx).trim() || null;
         }, tag).catch(() => null);
-        if (content) console.log(`  平文抽出: ${content.length}文字`);
+        if (content) {
+          console.warn(`⚠ DOM Range 失敗 → 平文フォールバック使用 (${content.length}文字)`);
+          console.warn(`  ※ Markdown見出し(##)が失われます。extractLastTaggedBlockMarkdown のログを確認してください`);
+        }
       }
 
       if (content && content.length >= minChars) {
@@ -442,6 +453,98 @@ async function waitForNewOutput(
   throw new Error(
     `タイムアウト: [${tag}] の出力が${maxWaitMs / 1000}秒以内に得られませんでした`,
   );
+}
+
+// ─── チェーン整合性チェック ────────────────────────────────────────────────────
+
+/**
+ * 各ステップの出力を data/debug/ に保存する。
+ * ファイル名に抽出メソッドが含まれるので「平文フォールバック」がすぐ判別できる。
+ */
+async function saveStepDebug(step: number, tag: string, content: string): Promise<void> {
+  try {
+    await fs.mkdir(DEBUG_DIR, { recursive: true });
+    const ts = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
+    const method = lastExtractionMethod;
+    const label = method === 'dom-range' ? 'dom-range' : 'FALLBACK-plaintext';
+    const filename = `${ts}_step${step}_${label}.txt`;
+    const header = [
+      `# Step ${step} / tag: [${tag}]`,
+      `# 抽出メソッド: ${method === 'dom-range' ? '✓ DOM Range API (Markdown保持)' : '⚠ 平文フォールバック (Markdown見出しなし)'}`,
+      `# 文字数: ${content.length}`,
+      `# 生成日時: ${new Date().toISOString()}`,
+      '',
+    ].join('\n');
+    await fs.writeFile(path.join(DEBUG_DIR, filename), header + content, 'utf-8');
+    console.log(`  📄 出力保存: data/debug/${filename}`);
+  } catch (e) {
+    console.warn(`  ⚠ デバッグ保存失敗: ${e}`);
+  }
+}
+
+/**
+ * ステップ出力のチェーン整合性を検証する。
+ * 問題が見つかった場合は ⚠ で警告し、data/debug/ ファイルの確認を促す。
+ */
+function checkChainIntegrity(step: number, output: string, keyword: string): void {
+  console.log(`\n  ── Step ${step} チェーン整合性チェック ──`);
+  let ok = true;
+
+  // 1. 文字数チェック
+  const minChars = step === 1 ? 300 : 1500;
+  if (output.length < minChars) {
+    console.warn(`  ⚠ 出力が短すぎます: ${output.length}文字 (期待値: ${minChars}文字以上)`);
+    console.warn(`     → 前ステップの内容が正しく引き継がれていない可能性があります`);
+    ok = false;
+  } else {
+    console.log(`  ✓ 文字数: ${output.length}文字`);
+  }
+
+  // 2. キーワード含有チェック（Step 2以降：記事内容がキーワードを反映しているか）
+  if (step >= 2) {
+    const kwFirst = keyword.split(/\s+/)[0];
+    if (!output.includes(kwFirst)) {
+      console.warn(`  ⚠ キーワード "${kwFirst}" が出力に含まれていません`);
+      console.warn(`     → Step 1 のリサーチ結果が引き継がれていない可能性があります`);
+      ok = false;
+    } else {
+      console.log(`  ✓ キーワード含有: "${kwFirst}"`);
+    }
+  }
+
+  // 3. Markdown見出しチェック（Step 2以降：DOM Rangeで正しく抽出されたか）
+  if (step >= 2) {
+    const h2count = (output.match(/^##\s/gm) ?? []).length;
+    if (h2count === 0) {
+      if (lastExtractionMethod === 'plaintext') {
+        console.warn(`  ⚠ Markdown見出し(##)なし ← 平文フォールバック使用により見出しが消えています`);
+        console.warn(`     → data/debug/ の FALLBACK-plaintext ファイルで内容を確認してください`);
+      } else {
+        console.warn(`  ⚠ Markdown見出し(##)が見つかりません → 記事構造が異常な可能性があります`);
+      }
+      ok = false;
+    } else {
+      console.log(`  ✓ Markdown見出し: ${h2count}個`);
+    }
+  }
+
+  // 4. 抽出メソッド明示
+  if (lastExtractionMethod === 'plaintext') {
+    console.warn(`  ⚠ 抽出メソッド: 平文フォールバック (DOM Range API 失敗)`);
+  } else {
+    console.log(`  ✓ 抽出メソッド: DOM Range API`);
+  }
+
+  // 5. 先頭200文字のプレビュー
+  const preview = output.slice(0, 200).replace(/\n/g, '↵');
+  console.log(`  プレビュー: ${preview}...`);
+
+  if (ok) {
+    console.log(`  ✓ Step ${step}: チェーン整合性に問題なし`);
+  } else {
+    console.warn(`  ⚠ Step ${step}: チェーン整合性に問題あり → data/debug/ を確認してください`);
+  }
+  console.log(`  ─────────────────────────────────`);
 }
 
 // ─── パイプライン構築 ─────────────────────────────────────────────────────────
@@ -617,6 +720,10 @@ async function main() {
         500,
       );
       console.log(`✓ Step ${i + 1} 完了: ${stepOutput.length}文字`);
+
+      // チェーン整合性チェック & デバッグ保存
+      checkChainIntegrity(i + 1, stepOutput, target.keyword);
+      await saveStepDebug(i + 1, tag, stepOutput);
 
       // 質問返し検知 → 自動回復プロンプトを1回送信
       if (isConversationalInterrupt(stepOutput, tag)) {
